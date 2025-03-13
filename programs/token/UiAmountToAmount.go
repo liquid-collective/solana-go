@@ -1,4 +1,5 @@
 // Copyright 2021 github.com/gagliardetto
+// Copyright 2025 github.com/liquid-collective
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,18 +94,15 @@ func (inst UiAmountToAmount) ValidateAndBuild() (*Instruction, error) {
 
 func (inst *UiAmountToAmount) Validate() error {
 	// Check whether all (required) parameters are set:
-	{
-		if inst.UiAmount == nil {
-			return errors.New("UiAmount parameter is not set")
-		}
+	if inst.UiAmount == nil {
+		return errors.New("UiAmount parameter is not set")
 	}
 
 	// Check whether all (required) accounts are set:
-	{
-		if inst.Accounts[0] == nil {
-			return errors.New("accounts.Mint is not set")
-		}
+	if inst.Accounts[0] == nil {
+		return errors.New("accounts.Accounts is not set")
 	}
+
 	return nil
 }
 
