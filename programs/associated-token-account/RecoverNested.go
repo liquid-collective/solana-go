@@ -1,4 +1,5 @@
 // Copyright 2021 github.com/gagliardetto
+// Copyright 2025 github.com/liquid-collective
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +52,7 @@ func (inst *RecoverNested) SetAccounts(accounts []*ag_solanago.AccountMeta) erro
 	if len(accounts) != 7 {
 		return fmt.Errorf("expected 7 accounts, got %v", len(accounts))
 	}
-	inst.Accounts = ag_solanago.AccountMetaSlice(accounts)
+	inst.Accounts = accounts
 	return nil
 }
 
