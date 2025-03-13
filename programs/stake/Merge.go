@@ -1,4 +1,5 @@
 // Copyright 2021 github.com/gagliardetto
+// Copyright 2025 github.com/liquid-collective
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +43,7 @@ type Merge struct {
 }
 
 func (inst *Merge) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.AccountMetaSlice = ag_solanago.AccountMetaSlice(accounts)
+	inst.AccountMetaSlice = accounts
 	return nil
 }
 
@@ -147,9 +148,9 @@ func (inst *Merge) EncodeToTree(parent ag_treeout.Branches) {
 					// Accounts of the instruction:
 					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("DestinationStakeAccount", inst.AccountMetaSlice.Get(0)))
-						accountsBranch.Child(ag_format.Meta("SourceStakeAccount", inst.AccountMetaSlice.Get(1)))
-						accountsBranch.Child(ag_format.Meta("ClockSysvar", inst.AccountMetaSlice.Get(2)))
-						accountsBranch.Child(ag_format.Meta("StakeHistorySysvar", inst.AccountMetaSlice.Get(3)))
+						accountsBranch.Child(ag_format.Meta("     SourceStakeAccount", inst.AccountMetaSlice.Get(1)))
+						accountsBranch.Child(ag_format.Meta("            ClockSysvar", inst.AccountMetaSlice.Get(2)))
+						accountsBranch.Child(ag_format.Meta("     StakeHistorySysvar", inst.AccountMetaSlice.Get(3)))
 					})
 				})
 		})
