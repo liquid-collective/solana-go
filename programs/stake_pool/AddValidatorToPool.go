@@ -45,9 +45,9 @@ type AddValidatorToPool struct {
 	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
-func (a *AddValidatorToPool) SetAccounts(accounts ag_solanago.AccountMetaSlice) *AddValidatorToPool {
+func (a *AddValidatorToPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
 	a.Accounts = accounts
-	return a
+	return nil
 }
 
 func (a *AddValidatorToPool) SetSigners(signers ag_solanago.AccountMetaSlice) *AddValidatorToPool {
@@ -250,9 +250,12 @@ func (a *AddValidatorToPool) Build() *Instruction {
 
 func (a *AddValidatorToPool) EncodeToTree(parent ag_treeout.Branches) {
 	parent.Child(ag_format.Program(ProgramName, ProgramID)).
+		//
 		ParentFunc(func(programBranch ag_treeout.Branches) {
 			programBranch.Child(ag_format.Instruction("AddValidatorToPool")).
+				//
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
+					//
 					instructionBranch.Child("Params").ParentFunc(func(paramsBranch ag_treeout.Branches) {
 						if a.OptionalSeed != nil {
 							paramsBranch.Child(ag_format.Param("OptionalSeed", *a.OptionalSeed))
@@ -260,9 +263,19 @@ func (a *AddValidatorToPool) EncodeToTree(parent ag_treeout.Branches) {
 					})
 
 					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch ag_treeout.Branches) {
-						for i, account := range a.Accounts {
-							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
-						}
+						accountsBranch.Child(ag_format.Meta("             stake_pool", a.Accounts.Get(0)))
+						accountsBranch.Child(ag_format.Meta("                 staker", a.Accounts.Get(1)))
+						accountsBranch.Child(ag_format.Meta("          reserve_stake", a.Accounts.Get(2)))
+						accountsBranch.Child(ag_format.Meta("     withdraw_authority", a.Accounts.Get(3)))
+						accountsBranch.Child(ag_format.Meta("         validator_list", a.Accounts.Get(4)))
+						accountsBranch.Child(ag_format.Meta("validator_stake_account", a.Accounts.Get(5)))
+						accountsBranch.Child(ag_format.Meta("           vote_account", a.Accounts.Get(6)))
+						accountsBranch.Child(ag_format.Meta("                   rent", a.Accounts.Get(7)))
+						accountsBranch.Child(ag_format.Meta("                  clock", a.Accounts.Get(8)))
+						accountsBranch.Child(ag_format.Meta("          stake_history", a.Accounts.Get(9)))
+						accountsBranch.Child(ag_format.Meta("           stake_config", a.Accounts.Get(10)))
+						accountsBranch.Child(ag_format.Meta("         system_program", a.Accounts.Get(11)))
+						accountsBranch.Child(ag_format.Meta("          stake_program", a.Accounts.Get(12)))
 
 						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(a.Signers)))
 						for j, signer := range a.Signers {
@@ -274,33 +287,21 @@ func (a *AddValidatorToPool) EncodeToTree(parent ag_treeout.Branches) {
 }
 
 func (a *AddValidatorToPool) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if a.OptionalSeed != nil {
-		if err := encoder.Encode(a.OptionalSeed); err != nil {
-			return err
-		}
+	if a.OptionalSeed == nil {
+		var seed uint32 = 0
+		a.OptionalSeed = &seed // set default zero seed value
 	}
-	for _, account := range a.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
-	return nil
+
+	return encoder.Encode(a.OptionalSeed)
 }
 
 func (a *AddValidatorToPool) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
-	if a.OptionalSeed != nil {
-		err = decoder.Decode(a.OptionalSeed)
-		if err != nil {
-			return err
-		}
+	if a.OptionalSeed == nil {
+		var seed uint32 = 0
+		a.OptionalSeed = &seed // set default zero seed value
 	}
-	for i := range a.Accounts {
-		err = decoder.Decode(a.Accounts[i])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+
+	return decoder.Decode(a.OptionalSeed)
 }
 
 func (a *AddValidatorToPool) Validate() error {

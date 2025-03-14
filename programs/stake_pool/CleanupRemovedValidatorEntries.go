@@ -47,6 +47,15 @@ func NewCleanupRemovedValidatorEntriesInstructionBuilder() *CleanupRemovedValida
 	}
 }
 
+func (e *CleanupRemovedValidatorEntries) GetAccounts() []*ag_solanago.AccountMeta {
+	return e.Accounts
+}
+
+func (e *CleanupRemovedValidatorEntries) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	e.Accounts = accounts
+	return nil
+}
+
 func (e *CleanupRemovedValidatorEntries) SetStakePool(pool ag_solanago.PublicKey) *CleanupRemovedValidatorEntries {
 	e.Accounts[0] = ag_solanago.Meta(pool)
 	return e
@@ -96,20 +105,10 @@ func (e *CleanupRemovedValidatorEntries) EncodeToTree(parent ag_treeout.Branches
 }
 
 func (e *CleanupRemovedValidatorEntries) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	for _, account := range e.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 func (e *CleanupRemovedValidatorEntries) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	for i := range e.Accounts {
-		if err := decoder.Decode(e.Accounts[i]); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
