@@ -61,101 +61,101 @@ func NewUpdateStakePoolBalanceInstructionBuilder() *UpdateStakePoolBalance {
 		Accounts: make(ag_solanago.AccountMetaSlice, 7),
 	}
 }
-func (u *UpdateStakePoolBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	u.Accounts = accounts
+func (inst *UpdateStakePoolBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	inst.Accounts = accounts
 	return nil
 }
 
-func (u *UpdateStakePoolBalance) GetAccounts() (accounts []*ag_solanago.AccountMeta) {
-	return u.Accounts
+func (inst *UpdateStakePoolBalance) GetAccounts() (accounts []*ag_solanago.AccountMeta) {
+	return inst.Accounts
 }
 
-func (u *UpdateStakePoolBalance) SetStakePool(pool ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[0] = ag_solanago.Meta(pool).WRITE()
-	return u
+func (inst *UpdateStakePoolBalance) SetStakePool(pool ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[0] = ag_solanago.Meta(pool).WRITE()
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetWithdrawAuthority(withdrawAuthority ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[1] = ag_solanago.Meta(withdrawAuthority)
-	return u
+func (inst *UpdateStakePoolBalance) SetWithdrawAuthority(withdrawAuthority ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[1] = ag_solanago.Meta(withdrawAuthority)
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetValidatorList(validatorList ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[2] = ag_solanago.Meta(validatorList).WRITE()
-	return u
+func (inst *UpdateStakePoolBalance) SetValidatorList(validatorList ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[2] = ag_solanago.Meta(validatorList).WRITE()
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetReserveStake(reserveStake ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[3] = ag_solanago.Meta(reserveStake)
-	return u
+func (inst *UpdateStakePoolBalance) SetReserveStake(reserveStake ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[3] = ag_solanago.Meta(reserveStake)
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetManagerFeeAccount(managerFeeAccount ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[4] = ag_solanago.Meta(managerFeeAccount).WRITE()
-	return u
+func (inst *UpdateStakePoolBalance) SetManagerFeeAccount(managerFeeAccount ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[4] = ag_solanago.Meta(managerFeeAccount).WRITE()
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetPoolMint(poolMint ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[5] = ag_solanago.Meta(poolMint).WRITE()
-	return u
+func (inst *UpdateStakePoolBalance) SetPoolMint(poolMint ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[5] = ag_solanago.Meta(poolMint).WRITE()
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) SetTokenProgram(tokenProgram ag_solanago.PublicKey) *UpdateStakePoolBalance {
-	u.Accounts[6] = ag_solanago.Meta(tokenProgram)
-	return u
+func (inst *UpdateStakePoolBalance) SetTokenProgram(tokenProgram ag_solanago.PublicKey) *UpdateStakePoolBalance {
+	inst.Accounts[6] = ag_solanago.Meta(tokenProgram)
+	return inst
 }
 
-func (u *UpdateStakePoolBalance) GetStakePool() ag_solanago.PublicKey {
-	return u.Accounts[0].PublicKey
+func (inst *UpdateStakePoolBalance) GetStakePool() ag_solanago.PublicKey {
+	return inst.Accounts[0].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetWithdrawAuthority() ag_solanago.PublicKey {
-	return u.Accounts[1].PublicKey
+func (inst *UpdateStakePoolBalance) GetWithdrawAuthority() ag_solanago.PublicKey {
+	return inst.Accounts[1].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetValidatorList() ag_solanago.PublicKey {
-	return u.Accounts[2].PublicKey
+func (inst *UpdateStakePoolBalance) GetValidatorList() ag_solanago.PublicKey {
+	return inst.Accounts[2].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetReserveStake() ag_solanago.PublicKey {
-	return u.Accounts[3].PublicKey
+func (inst *UpdateStakePoolBalance) GetReserveStake() ag_solanago.PublicKey {
+	return inst.Accounts[3].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetManagerFeeAccount() ag_solanago.PublicKey {
-	return u.Accounts[4].PublicKey
+func (inst *UpdateStakePoolBalance) GetManagerFeeAccount() ag_solanago.PublicKey {
+	return inst.Accounts[4].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetPoolMint() ag_solanago.PublicKey {
-	return u.Accounts[5].PublicKey
+func (inst *UpdateStakePoolBalance) GetPoolMint() ag_solanago.PublicKey {
+	return inst.Accounts[5].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) GetTokenProgram() ag_solanago.PublicKey {
-	return u.Accounts[6].PublicKey
+func (inst *UpdateStakePoolBalance) GetTokenProgram() ag_solanago.PublicKey {
+	return inst.Accounts[6].PublicKey
 }
 
-func (u *UpdateStakePoolBalance) ValidateAndBuild() (*Instruction, error) {
-	if err := u.Validate(); err != nil {
+func (inst *UpdateStakePoolBalance) ValidateAndBuild() (*Instruction, error) {
+	if err := inst.Validate(); err != nil {
 		return nil, err
 	}
-	return u.Build(), nil
+	return inst.Build(), nil
 }
 
-func (u *UpdateStakePoolBalance) Build() *Instruction {
+func (inst *UpdateStakePoolBalance) Build() *Instruction {
 	return &Instruction{
 		BaseVariant: ag_binary.BaseVariant{
 			TypeID: ag_binary.TypeIDFromUint8(Instruction_UpdateStakePoolBalance),
-			Impl:   u,
+			Impl:   inst,
 		},
 	}
 }
 
-func (u *UpdateStakePoolBalance) EncodeToTree(parent ag_treeout.Branches) {
+func (inst *UpdateStakePoolBalance) EncodeToTree(parent ag_treeout.Branches) {
 	parent.Child(ag_format.Program(ProgramName, ProgramID)).
 		ParentFunc(func(programBranch ag_treeout.Branches) {
 			programBranch.Child(ag_format.Instruction("UpdateStakePoolBalance")).
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch ag_treeout.Branches) {
-						for i, account := range u.Accounts {
+						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
 					})
@@ -163,16 +163,16 @@ func (u *UpdateStakePoolBalance) EncodeToTree(parent ag_treeout.Branches) {
 		})
 }
 
-func (u *UpdateStakePoolBalance) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
+func (inst *UpdateStakePoolBalance) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
 	return nil
 }
 
-func (u *UpdateStakePoolBalance) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
+func (inst *UpdateStakePoolBalance) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
 	return nil
 }
 
-func (u *UpdateStakePoolBalance) Validate() error {
-	for i, account := range u.Accounts {
+func (inst *UpdateStakePoolBalance) Validate() error {
+	for i, account := range inst.Accounts {
 		if account == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
