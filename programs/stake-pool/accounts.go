@@ -88,10 +88,10 @@ type StakePool struct {
 	NextEpochFee FutureEpoch[Fee]
 
 	// Preferred deposit validator vote account pubkey
-	PreferredDepositValidatorVoteAddress *ag_solanago.PublicKey
+	PreferredDepositValidatorVoteAddress *ag_solanago.PublicKey `bin:"optional"`
 
 	// Preferred withdraw validator vote account pubkey
-	PreferredWithdrawValidatorVoteAddress *ag_solanago.PublicKey
+	PreferredWithdrawValidatorVoteAddress *ag_solanago.PublicKey `bin:"optional"`
 
 	// Fee assessed on stake deposits
 	StakeDepositFee Fee
@@ -107,7 +107,7 @@ type StakePool struct {
 	StakeReferralFee uint8
 
 	// Toggles whether the `DepositSol` instruction requires a signature from this `sol_deposit_authority`
-	SolDepositAuthority *ag_solanago.PublicKey
+	SolDepositAuthority *ag_solanago.PublicKey `bin:"optional"`
 
 	// Fee assessed on SOL deposits
 	SolDepositFee Fee
@@ -117,7 +117,7 @@ type StakePool struct {
 	SolReferralFee uint8
 
 	// Toggles whether the `WithdrawSol` instruction requires a signature from the `deposit_authority`
-	SolWithdrawAuthority *ag_solanago.PublicKey
+	SolWithdrawAuthority *ag_solanago.PublicKey `bin:"optional"`
 
 	// Fee assessed on SOL withdrawals
 	SolWithdrawalFee Fee
