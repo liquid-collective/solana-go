@@ -16,6 +16,7 @@
 package stakepool
 
 import (
+	bin "github.com/gagliardetto/binary"
 	ag_solanago "github.com/gagliardetto/solana-go"
 )
 
@@ -35,8 +36,23 @@ type Lockup struct {
 }
 
 type FutureEpoch[T any] struct {
-	EpochsRemaining uint8
-	Value           T
+	Enum bin.BorshEnum `borsh_enum:"true"`
+	None bin.EmptyVariant
+	One  T
+	Two  T
+}
+
+func (f *FutureEpoch[T]) Value() *T {
+	switch f.Enum {
+	case 0:
+		return nil
+	case 1:
+		return &f.One
+	case 2:
+		return &f.Two
+	default:
+		return nil
+	}
 }
 
 type StakePool struct {
