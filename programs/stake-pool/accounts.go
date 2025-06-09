@@ -35,7 +35,8 @@ type Lockup struct {
 }
 
 type FutureEpoch[T any] struct {
-	Value T
+	EpochsRemaining uint8
+	Value           T
 }
 
 type StakePool struct {
