@@ -16,7 +16,6 @@
 package stakepool
 
 import (
-	"errors"
 	"fmt"
 
 	ag_binary "github.com/gagliardetto/binary"
@@ -31,12 +30,11 @@ type SetManager struct {
 	// [1] = [SIGNER] manager
 	// [2] = [SIGNER] newManager
 	// [3] = [] newManagerFeeAccount
-	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	ag_solanago.AccountMetaSlice `bin:"-"`
 }
 
 func NewSetManagerInstruction(
-	// Accounts:
+// Accounts:
 	stakePool ag_solanago.PublicKey,
 	manager ag_solanago.PublicKey,
 	newManager ag_solanago.PublicKey,
@@ -51,46 +49,44 @@ func NewSetManagerInstruction(
 
 func NewSetManagerInstructionBuilder() *SetManager {
 	return &SetManager{
-		Accounts: make(ag_solanago.AccountMetaSlice, 4),
-		Signers:  make(ag_solanago.AccountMetaSlice, 2),
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 4),
 	}
 }
 
 func (inst *SetManager) SetStakePool(pool ag_solanago.PublicKey) *SetManager {
-	inst.Accounts[0] = ag_solanago.Meta(pool).WRITE()
+	inst.AccountMetaSlice[0] = ag_solanago.Meta(pool).WRITE()
 	return inst
 }
 
 func (inst *SetManager) SetManager(manager ag_solanago.PublicKey) *SetManager {
-	inst.Accounts[1] = ag_solanago.Meta(manager).SIGNER()
+	inst.AccountMetaSlice[1] = ag_solanago.Meta(manager).SIGNER()
 	return inst
 }
 
 func (inst *SetManager) SetNewManager(newManager ag_solanago.PublicKey) *SetManager {
-	inst.Accounts[2] = ag_solanago.Meta(newManager).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(newManager).SIGNER()
+	inst.AccountMetaSlice[2] = ag_solanago.Meta(newManager).SIGNER()
 	return inst
 }
 
 func (inst *SetManager) SetNewManagerFeeAccount(newManagerFeeAccount ag_solanago.PublicKey) *SetManager {
-	inst.Accounts[3] = ag_solanago.Meta(newManagerFeeAccount)
+	inst.AccountMetaSlice[3] = ag_solanago.Meta(newManagerFeeAccount)
 	return inst
 }
 
-func (inst *SetManager) GetStakePool() ag_solanago.PublicKey {
-	return inst.Accounts[0].PublicKey
+func (inst *SetManager) GetStakePool() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[0]
 }
 
-func (inst *SetManager) GetManager() ag_solanago.PublicKey {
-	return inst.Accounts[1].PublicKey
+func (inst *SetManager) GetManager() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[1]
 }
 
-func (inst *SetManager) GetNewManager() ag_solanago.PublicKey {
-	return inst.Accounts[2].PublicKey
+func (inst *SetManager) GetNewManager() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[2]
 }
 
-func (inst *SetManager) GetNewManagerFeeAccount() ag_solanago.PublicKey {
-	return inst.Accounts[3].PublicKey
+func (inst *SetManager) GetNewManagerFeeAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[3]
 }
 
 func (inst *SetManager) ValidateAndBuild() (*Instruction, error) {
@@ -115,44 +111,20 @@ func (inst *SetManager) EncodeToTree(parent ag_treeout.Branches) {
 			programBranch.Child(ag_format.Instruction("SetManager")).
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch ag_treeout.Branches) {
-						for i, account := range inst.Accounts {
-							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
-						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
+						accountsBranch.Child(ag_format.Meta("StakePool", inst.AccountMetaSlice.Get(0)))
+						accountsBranch.Child(ag_format.Meta("Manager", inst.AccountMetaSlice.Get(1)))
+						accountsBranch.Child(ag_format.Meta("NewManager", inst.AccountMetaSlice.Get(2)))
+						accountsBranch.Child(ag_format.Meta("NewManagerFeeAccount", inst.AccountMetaSlice.Get(3)))
 					})
 				})
 		})
 }
 
-func (inst *SetManager) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (inst *SetManager) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (inst *SetManager) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
-			return fmt.Errorf("accounts[%v] is not set", i)
+	for accIndex, acc := range inst.AccountMetaSlice {
+		if acc == nil {
+			return fmt.Errorf("ins.AccountMetaSlice[%v] is not set", accIndex)
 		}
-	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
-		return errors.New("accounts.Manager should be a signer")
 	}
 	return nil
 }
