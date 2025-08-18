@@ -25,7 +25,7 @@ import (
 )
 
 type DelegateStake struct {
-	// [0] = [WRITE SIGNER] StakeAccount
+	// [0] = [WRITE] StakeAccount
 	// ··········· Stake account getting initialized
 	//
 	// [1] = [] Vote Account
@@ -56,7 +56,7 @@ func (inst *DelegateStake) Validate() error {
 	return nil
 }
 func (inst *DelegateStake) SetStakeAccount(stakeAccount ag_solanago.PublicKey) *DelegateStake {
-	inst.AccountMetaSlice[0] = ag_solanago.Meta(stakeAccount).WRITE().SIGNER()
+	inst.AccountMetaSlice[0] = ag_solanago.Meta(stakeAccount).WRITE()
 	return inst
 }
 func (inst *DelegateStake) SetVoteAccount(voteAcc ag_solanago.PublicKey) *DelegateStake {
