@@ -25,8 +25,8 @@ import (
 )
 
 type DelegateStake struct {
-	// [0] = [WRITE] StakeAccount
-	// ··········· Stake account getting initialized
+	// [0] = [WRITE SIGNER] StakeAccount
+	// ··········· Stake account getting delegated (signed by stake authority)
 	//
 	// [1] = [] Vote Account
 	// ··········· The validator vote account being delegated to
@@ -39,9 +39,6 @@ type DelegateStake struct {
 	//
 	// [4] = [] Stake Config Account
 	// ··········· The Stake Config Account
-	//
-	// [5] = [WRITE SIGNER] Stake Authoriy
-	// ··········· The Stake Authority
 	//
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
@@ -56,7 +53,7 @@ func (inst *DelegateStake) Validate() error {
 	return nil
 }
 func (inst *DelegateStake) SetStakeAccount(stakeAccount ag_solanago.PublicKey) *DelegateStake {
-	inst.AccountMetaSlice[0] = ag_solanago.Meta(stakeAccount).WRITE()
+	inst.AccountMetaSlice[0] = ag_solanago.Meta(stakeAccount).WRITE().SIGNER()
 	return inst
 }
 func (inst *DelegateStake) SetVoteAccount(voteAcc ag_solanago.PublicKey) *DelegateStake {
@@ -75,10 +72,7 @@ func (inst *DelegateStake) SetConfigAccount(stakeConfigAcc ag_solanago.PublicKey
 	inst.AccountMetaSlice[4] = ag_solanago.Meta(stakeConfigAcc)
 	return inst
 }
-func (inst *DelegateStake) SetStakeAuthority(stakeAuthority ag_solanago.PublicKey) *DelegateStake {
-	inst.AccountMetaSlice[5] = ag_solanago.Meta(stakeAuthority).WRITE().SIGNER()
-	return inst
-}
+
 func (inst *DelegateStake) GetStakeAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[0]
 }
@@ -89,9 +83,6 @@ func (inst *DelegateStake) GetStakeHistorySysvar() *ag_solanago.AccountMeta {
 }
 func (inst *DelegateStake) GetConfigAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[4]
-}
-func (inst *DelegateStake) GetStakeAuthority() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[5]
 }
 
 func (inst DelegateStake) Build() *Instruction {
@@ -119,7 +110,6 @@ func (inst *DelegateStake) EncodeToTree(parent ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("ClockSysvar", inst.AccountMetaSlice.Get(2)))
 						accountsBranch.Child(ag_format.Meta("StakeHistorySysvar", inst.AccountMetaSlice.Get(3)))
 						accountsBranch.Child(ag_format.Meta("StakeConfigAccount", inst.AccountMetaSlice.Get(4)))
-						accountsBranch.Child(ag_format.Meta("StakeAuthoriy", inst.AccountMetaSlice.Get(5)))
 					})
 				})
 		})
@@ -128,7 +118,7 @@ func (inst *DelegateStake) EncodeToTree(parent ag_treeout.Branches) {
 // NewDelegateStakeInstructionBuilder creates a new `DelegateStake` instruction builder.
 func NewDelegateStakeInstructionBuilder() *DelegateStake {
 	nd := &DelegateStake{
-		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 6),
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 5),
 	}
 	return nd
 }
@@ -136,15 +126,13 @@ func NewDelegateStakeInstructionBuilder() *DelegateStake {
 // NewDelegateStakeInstruction declares a new DelegateStake instruction with the provided parameters and accounts.
 func NewDelegateStakeInstruction(
 	// Accounts:
-	validatorVoteAccount ag_solanago.PublicKey,
-	stakeAuthority ag_solanago.PublicKey,
 	stakeAccount ag_solanago.PublicKey,
+	validatorVoteAccount ag_solanago.PublicKey,
 ) *DelegateStake {
 	return NewDelegateStakeInstructionBuilder().
 		SetStakeAccount(stakeAccount).
 		SetVoteAccount(validatorVoteAccount).
 		SetClockSysvar(ag_solanago.SysVarClockPubkey).
 		SetStakeHistorySysvar(ag_solanago.SysVarStakeHistoryPubkey).
-		SetConfigAccount(ag_solanago.SysVarStakeConfigPubkey).
-		SetStakeAuthority(stakeAuthority)
+		SetConfigAccount(ag_solanago.SysVarStakeConfigPubkey)
 }
