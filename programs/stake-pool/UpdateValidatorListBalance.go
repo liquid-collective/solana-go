@@ -230,9 +230,9 @@ func (inst *UpdateValidatorListBalance) Validate() error {
 	return nil
 }
 
-func (inst *UpdateValidatorListBalance) FindTransientStakeAccount(programID, voteAccountAddress, stakePoolAddress ag_solanago.PublicKey, validatorTransitSuffix uint32) (ag_solanago.PublicKey, uint8, error) {
+func (inst *UpdateValidatorListBalance) FindTransientStakeAccount(programID, voteAccountAddress, stakePoolAddress ag_solanago.PublicKey, validatorTransitSuffix uint64) (ag_solanago.PublicKey, uint8, error) {
 	seedBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint32(seedBytes, validatorTransitSuffix)
+	binary.LittleEndian.PutUint64(seedBytes, validatorTransitSuffix)
 
 	seeds := [][]byte{
 		[]byte("transient"),
