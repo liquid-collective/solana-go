@@ -195,11 +195,14 @@ type ValidatorStakeInfo struct {
 	// Last epoch the active and transient stake lamports fields were updated
 	LastUpdateEpoch uint64
 
-	// Transient account seed suffix start, used to derive the transient stake account address
-	TransientSeedSuffixStart uint64
+	// Transient account seed suffix, used to derive the transient stake account address
+	TransientSeedSuffix uint64
 
-	// Transient account seed suffix end, used to derive the transient stake account address
-	TransientSeedSuffixEnd uint64
+	// Unused space, initially meant to specify the end of seed suffixes.
+	Unused uint32
+
+	// Validator account seed suffix (0 means None).
+	ValidatorSeedSuffix uint32
 
 	// Status of the validator stake account
 	Status StakeStatus
