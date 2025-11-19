@@ -39,8 +39,26 @@ type RemoveValidatorFromPool struct {
 	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
+func (inst *RemoveValidatorFromPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	inst.Accounts = accounts
+	return nil
+}
+
+func (inst *RemoveValidatorFromPool) SetSigners(signers ag_solanago.AccountMetaSlice) *RemoveValidatorFromPool {
+	inst.Signers = signers
+	return inst
+}
+
+func (inst *RemoveValidatorFromPool) GetSigners() []*ag_solanago.AccountMeta {
+	return inst.Signers
+}
+
+func (inst *RemoveValidatorFromPool) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
 func NewRemoveValidatorFromPoolInstruction(
-	// Accounts:
+// Accounts:
 	stakePool ag_solanago.PublicKey,
 	staker ag_solanago.PublicKey,
 	withdrawAuthority ag_solanago.PublicKey,
@@ -176,20 +194,10 @@ func (inst *RemoveValidatorFromPool) EncodeToTree(parent ag_treeout.Branches) {
 }
 
 func (inst *RemoveValidatorFromPool) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 func (inst *RemoveValidatorFromPool) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
