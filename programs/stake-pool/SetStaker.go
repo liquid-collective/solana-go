@@ -16,7 +16,6 @@
 package stakepool
 
 import (
-	"errors"
 	"fmt"
 
 	ag_binary "github.com/gagliardetto/binary"
@@ -30,12 +29,11 @@ type SetStaker struct {
 	// [0] = [WRITE] stakePool
 	// [1] = [SIGNER] currentStaker
 	// [2] = [] newStaker
-	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
+	ag_solanago.AccountMetaSlice `bin:"-"`
 }
 
 func NewSetStakerInstruction(
-	// Accounts:
+// Accounts:
 	stakePool ag_solanago.PublicKey,
 	signer ag_solanago.PublicKey,
 	newStaker ag_solanago.PublicKey,
@@ -48,37 +46,35 @@ func NewSetStakerInstruction(
 
 func NewSetStakerInstructionBuilder() *SetStaker {
 	return &SetStaker{
-		Accounts: make(ag_solanago.AccountMetaSlice, 3),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 3),
 	}
 }
 
 func (inst *SetStaker) SetStakePool(pool ag_solanago.PublicKey) *SetStaker {
-	inst.Accounts[0] = ag_solanago.Meta(pool).WRITE()
+	inst.AccountMetaSlice[0] = ag_solanago.Meta(pool).WRITE()
 	return inst
 }
 
 func (inst *SetStaker) SetCurrentStaker(staker ag_solanago.PublicKey) *SetStaker {
-	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
+	inst.AccountMetaSlice[1] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
 func (inst *SetStaker) SetNewStaker(newStaker ag_solanago.PublicKey) *SetStaker {
-	inst.Accounts[2] = ag_solanago.Meta(newStaker)
+	inst.AccountMetaSlice[2] = ag_solanago.Meta(newStaker)
 	return inst
 }
 
 func (inst *SetStaker) GetStakePool() ag_solanago.PublicKey {
-	return inst.Accounts[0].PublicKey
+	return inst.AccountMetaSlice[0].PublicKey
 }
 
 func (inst *SetStaker) GetCurrentStaker() ag_solanago.PublicKey {
-	return inst.Accounts[1].PublicKey
+	return inst.AccountMetaSlice[1].PublicKey
 }
 
 func (inst *SetStaker) GetNewStaker() ag_solanago.PublicKey {
-	return inst.Accounts[2].PublicKey
+	return inst.AccountMetaSlice[2].PublicKey
 }
 
 func (inst *SetStaker) ValidateAndBuild() (*Instruction, error) {
@@ -103,44 +99,19 @@ func (inst *SetStaker) EncodeToTree(parent ag_treeout.Branches) {
 			programBranch.Child(ag_format.Instruction("SetStaker")).
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 					instructionBranch.Child("Accounts").ParentFunc(func(accountsBranch ag_treeout.Branches) {
-						for i, account := range inst.Accounts {
-							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
-						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
+						accountsBranch.Child(ag_format.Meta("StakePool", inst.AccountMetaSlice.Get(0)))
+						accountsBranch.Child(ag_format.Meta("CurrentStaker", inst.AccountMetaSlice.Get(1)))
+						accountsBranch.Child(ag_format.Meta("NewStaker", inst.AccountMetaSlice.Get(2)))
 					})
 				})
 		})
 }
 
-func (inst *SetStaker) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (inst *SetStaker) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (inst *SetStaker) Validate() error {
-	for i, account := range inst.Accounts {
+	for i, account := range inst.AccountMetaSlice {
 		if account == nil {
-			return fmt.Errorf("accounts[%v] is not set", i)
+			return fmt.Errorf("ins.AccountMetaSlice[%v] is not set", i)
 		}
-	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
-		return errors.New("accounts.CurrentStaker should be a signer")
 	}
 	return nil
 }
