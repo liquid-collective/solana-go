@@ -39,6 +39,9 @@ type Merge struct {
 	// [3] = [] StakeHistorySysvar
 	// ··········· Stake history sysvar account.
 	//
+	// [4] = [SIGNER] StakeAuthority
+	// ··········· Stake authority.
+	//
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
@@ -55,7 +58,7 @@ func (inst Merge) GetAccounts() (accounts []*ag_solanago.AccountMeta) {
 // NewMergeInstructionBuilder creates a new `Merge` instruction builder.
 func NewMergeInstructionBuilder() *Merge {
 	nd := &Merge{
-		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 4),
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 5),
 	}
 	return nd
 }
@@ -112,6 +115,19 @@ func (inst *Merge) GetStakeHistorySysvarAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[3]
 }
 
+// SetStakeAuthority sets the "stake authority" account.
+// The stake authority.
+func (inst *Merge) SetStakeAuthority(stakeAuthority ag_solanago.PublicKey) *Merge {
+	inst.AccountMetaSlice[4] = ag_solanago.Meta(stakeAuthority).SIGNER()
+	return inst
+}
+
+// GetStakeAuthority gets the "stake authority" account.
+// The stake authority.
+func (inst *Merge) GetStakeAuthority() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[4]
+}
+
 func (inst Merge) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
 		Impl:   inst,
@@ -151,6 +167,7 @@ func (inst *Merge) EncodeToTree(parent ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("     SourceStakeAccount", inst.AccountMetaSlice.Get(1)))
 						accountsBranch.Child(ag_format.Meta("            ClockSysvar", inst.AccountMetaSlice.Get(2)))
 						accountsBranch.Child(ag_format.Meta("     StakeHistorySysvar", inst.AccountMetaSlice.Get(3)))
+						accountsBranch.Child(ag_format.Meta("         StakeAuthority", inst.AccountMetaSlice.Get(4)))
 					})
 				})
 		})
@@ -165,16 +182,17 @@ func (inst *Merge) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) 
 }
 
 // NewMergeInstruction declares a new Merge instruction with the provided accounts.
+// The clock and stake history sysvars are set to their well-known addresses automatically.
 func NewMergeInstruction(
 	// Accounts:
 	destination ag_solanago.PublicKey,
 	source ag_solanago.PublicKey,
-	clock ag_solanago.PublicKey,
-	stakeHistory ag_solanago.PublicKey,
+	stakeAuthority ag_solanago.PublicKey,
 ) *Merge {
 	return NewMergeInstructionBuilder().
 		SetDestinationStakeAccount(destination).
 		SetSourceStakeAccount(source).
-		SetClockSysvarAccount(clock).
-		SetStakeHistorySysvarAccount(stakeHistory)
+		SetClockSysvarAccount(ag_solanago.SysVarClockPubkey).
+		SetStakeHistorySysvarAccount(ag_solanago.SysVarStakeHistoryPubkey).
+		SetStakeAuthority(stakeAuthority)
 }
