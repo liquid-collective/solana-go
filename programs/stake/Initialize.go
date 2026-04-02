@@ -30,7 +30,7 @@ type Initialize struct {
 	Authorized *Authorized
 	// Lockup settings for stake account
 	Lockup *Lockup
-	// [0] = [WRITE SIGNER] StakeAccount
+	// [0] = [WRITE] StakeAccount
 	// ··········· Stake account getting initialized
 	//
 	// [1] = [] RentSysvar
@@ -96,7 +96,7 @@ func (inst *Initialize) Validate() error {
 
 // Stake account account
 func (inst *Initialize) SetStakeAccount(stakeAccount solana.PublicKey) *Initialize {
-	inst.AccountMetaSlice[0] = solana.Meta(stakeAccount).WRITE().SIGNER()
+	inst.AccountMetaSlice[0] = solana.Meta(stakeAccount).WRITE()
 	return inst
 }
 
