@@ -30,7 +30,7 @@ type SetFundingAuthority struct {
 	Auth *FundingType
 	// [0] = [WRITE] stakePool
 	// [1] = [SIGNER] manager
-	// [2] = [] newFundingAuthority
+	// [2] = [] newFundingAuthority (optional: omit it to remove the funding authority)
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
@@ -40,18 +40,22 @@ func NewSetFundingAuthorityInstruction(
 	// Accounts:
 	stakePool ag_solanago.PublicKey,
 	manager ag_solanago.PublicKey,
-	newFundingAuthority ag_solanago.PublicKey,
+	// newFundingAuthority is nil to remove the authority instead of replacing it.
+	newFundingAuthority *ag_solanago.PublicKey,
 ) *SetFundingAuthority {
-	return NewSetFundingAuthorityInstructionBuilder().
+	inst := NewSetFundingAuthorityInstructionBuilder().
 		SetAuth(auth).
 		SetStakePool(stakePool).
-		SetManager(manager).
-		SetNewFundingAuthority(newFundingAuthority)
+		SetManager(manager)
+	if newFundingAuthority != nil {
+		inst.SetNewFundingAuthority(*newFundingAuthority)
+	}
+	return inst
 }
 
 func NewSetFundingAuthorityInstructionBuilder() *SetFundingAuthority {
 	return &SetFundingAuthority{
-		Accounts: make(ag_solanago.AccountMetaSlice, 3),
+		Accounts: make(ag_solanago.AccountMetaSlice, 2),
 	}
 }
 
@@ -71,7 +75,7 @@ func (inst *SetFundingAuthority) SetManager(manager ag_solanago.PublicKey) *SetF
 }
 
 func (inst *SetFundingAuthority) SetNewFundingAuthority(newFundingAuthority ag_solanago.PublicKey) *SetFundingAuthority {
-	inst.Accounts[2] = ag_solanago.Meta(newFundingAuthority)
+	inst.Accounts = setAccount(inst.Accounts, 2, ag_solanago.Meta(newFundingAuthority))
 	return inst
 }
 
@@ -87,8 +91,12 @@ func (inst *SetFundingAuthority) GetManager() ag_solanago.PublicKey {
 	return inst.Accounts[1].PublicKey
 }
 
-func (inst *SetFundingAuthority) GetNewFundingAuthority() ag_solanago.PublicKey {
-	return inst.Accounts[2].PublicKey
+// GetNewFundingAuthority returns nil when the instruction removes the authority.
+func (inst *SetFundingAuthority) GetNewFundingAuthority() *ag_solanago.AccountMeta {
+	if len(inst.Accounts) <= 2 {
+		return nil
+	}
+	return inst.Accounts[2]
 }
 
 func (inst *SetFundingAuthority) ValidateAndBuild() (*Instruction, error) {
@@ -150,12 +158,12 @@ func (inst *SetFundingAuthority) Validate() error {
 	if inst.Auth == nil {
 		return errors.New("auth is not set")
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	for _, account := range inst.Accounts[3:] {
+	for _, account := range inst.Accounts[2:] {
 		if account == nil {
 			return errors.New("an optional account is not set")
 		}
@@ -171,8 +179,8 @@ func (inst *SetFundingAuthority) GetAccounts() []*ag_solanago.AccountMeta {
 }
 
 func (inst *SetFundingAuthority) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	if len(accounts) < 3 {
-		return fmt.Errorf("insufficient accounts, SetFundingAuthority requires at-least 3 accounts not %d", len(accounts))
+	if len(accounts) < 2 {
+		return fmt.Errorf("insufficient accounts, SetFundingAuthority requires at-least 2 accounts not %d", len(accounts))
 	}
 	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil

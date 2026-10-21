@@ -33,8 +33,8 @@ type GetAccountDataSize struct {
 }
 
 func (inst *GetAccountDataSize) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	if len(accounts) != 1 {
-		return fmt.Errorf("expected 1 account, got %v", len(accounts))
+	if len(accounts) < 1 {
+		return fmt.Errorf("expected at least 1 account, got %v", len(accounts))
 	}
 	inst.Accounts = accounts[0]
 	return nil

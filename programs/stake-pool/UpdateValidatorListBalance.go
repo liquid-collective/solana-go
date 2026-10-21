@@ -107,7 +107,7 @@ func (inst *UpdateValidatorListBalance) SetValidatorAndTransientAccounts(account
 }
 
 func (inst *UpdateValidatorListBalance) SetValidatorStakeAccount(validatorStakeAccount ag_solanago.PublicKey) *UpdateValidatorListBalance {
-	inst.Accounts = append(inst.Accounts[:7], ag_solanago.Meta(validatorStakeAccount).WRITE())
+	inst.Accounts = setAccount(inst.Accounts, 7, ag_solanago.Meta(validatorStakeAccount).WRITE())
 	return inst
 }
 

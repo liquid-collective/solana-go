@@ -135,7 +135,7 @@ func (i *Initialize) GetTokenProgramAccount() *ag_solanago.AccountMeta {
 // SetDepositAuthorityAccount makes deposits require this authority's signature (a private pool).
 // Leave it unset for a permissionless pool.
 func (i *Initialize) SetDepositAuthorityAccount(account ag_solanago.PublicKey) *Initialize {
-	i.Accounts = append(i.Accounts[:9], ag_solanago.Meta(account).SIGNER())
+	i.Accounts = setAccount(i.Accounts, 9, ag_solanago.Meta(account).SIGNER())
 	return i
 }
 

@@ -203,3 +203,13 @@ func readFeeType(decoder *ag_binary.Decoder) (FeeType, error) {
 		return nil, fmt.Errorf("invalid fee type tag %d", tag)
 	}
 }
+
+// setAccount puts meta at idx: it replaces an existing account and appends otherwise, so setting an
+// optional or variable account on a populated or decoded instruction never drops the accounts around it.
+func setAccount(accounts ag_solanago.AccountMetaSlice, idx int, meta *ag_solanago.AccountMeta) ag_solanago.AccountMetaSlice {
+	for len(accounts) <= idx {
+		accounts = append(accounts, nil)
+	}
+	accounts[idx] = meta
+	return accounts
+}

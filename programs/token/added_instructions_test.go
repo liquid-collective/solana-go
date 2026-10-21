@@ -49,3 +49,17 @@ func TestUiAmountToAmountRejectsInvalidUTF8(t *testing.T) {
 	_, err := DecodeInstruction([]*solana.AccountMeta{solana.Meta(solana.SystemProgramID)}, []byte{Instruction_UiAmountToAmount, 0xff, 0xfe})
 	assert.ErrorContains(t, err, "UTF-8")
 }
+
+// The token program reads the first account of these instructions and ignores trailing ones, so
+// an instruction with extra accounts is still valid and must decode.
+func TestAccountOnlyInstructionsIgnoreTrailingAccounts(t *testing.T) {
+	first, extra := solana.Meta(solana.SystemProgramID), solana.Meta(solana.TokenProgramID)
+	for id, name := range map[uint8]string{Instruction_GetAccountDataSize: "GetAccountDataSize", Instruction_InitializeImmutableOwner: "InitializeImmutableOwner"} {
+		decoded, err := DecodeInstruction([]*solana.AccountMeta{first, extra}, []byte{id})
+		require.NoError(t, err, name)
+		assert.Equal(t, []*solana.AccountMeta{first}, decoded.Accounts(), name)
+
+		_, err = DecodeInstruction(nil, []byte{id})
+		assert.Error(t, err, "%s needs its account", name)
+	}
+}

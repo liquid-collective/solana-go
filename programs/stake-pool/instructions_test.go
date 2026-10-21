@@ -28,6 +28,7 @@ func fill[T any](b T) T {
 	optional := map[string]string{
 		"Initialize":                 "SetDepositAuthorityAccount",
 		"WithdrawSol":                "SetSolWithdrawAuthority",
+		"SetFundingAuthority":        "SetNewFundingAuthority",
 		"UpdateValidatorListBalance": "SetValidatorStakeAccount",
 		"DepositStake":               "SetStakeDepositAuthoritySigner",
 		"DepositStakeWithSlippage":   "SetStakeDepositAuthoritySigner",
@@ -74,7 +75,7 @@ func signerIndexes(accounts []*ag_solanago.AccountMeta) []int {
 // (https://docs.rs/spl-stake-pool/2.0.3/src/spl_stake_pool/instruction.rs.html).
 func TestInstructionsMatchSPLEncoding(t *testing.T) {
 	newPK := testKey(9)
-	funding := FundingTypeSolDeposit
+	stakeDeposit, solDeposit, solWithdraw := FundingTypeStakeDeposit, FundingTypeSolDeposit, FundingTypeSolWithdraw
 	cases := []struct {
 		name     string
 		inst     *Instruction
@@ -108,7 +109,10 @@ func TestInstructionsMatchSPLEncoding(t *testing.T) {
 		{"SetFee sol deposit", fill(NewSetFeeInstructionBuilder()).SetFee(SolDeposit{Fee: Fee{Denominator: 1, Numerator: 300}}).Build(), "0c0401000000000000002c01000000000000", 2, []int{1}},
 		{"SetFee stake deposit", fill(NewSetFeeInstructionBuilder()).SetFee(StakeDeposit{Fee: Fee{Denominator: 1, Numerator: 400}}).Build(), "0c0501000000000000009001000000000000", 2, []int{1}},
 		{"SetFee sol withdrawal", fill(NewSetFeeInstructionBuilder()).SetFee(SolWithdrawal{Fee: Fee{Denominator: 1, Numerator: 500}}).Build(), "0c060100000000000000f401000000000000", 2, []int{1}},
-		{"SetFundingAuthority", fill(NewSetFundingAuthorityInstructionBuilder()).SetAuth(&funding).Build(), "0f01", 3, []int{1}},
+		{"SetFundingAuthority replace", fill(NewSetFundingAuthorityInstructionBuilder()).SetAuth(&solDeposit).SetNewFundingAuthority(newPK).Build(), "0f01", 3, []int{1}},
+		{"SetFundingAuthority remove stake deposit", fill(NewSetFundingAuthorityInstructionBuilder()).SetAuth(&stakeDeposit).Build(), "0f00", 2, []int{1}},
+		{"SetFundingAuthority remove sol deposit", fill(NewSetFundingAuthorityInstructionBuilder()).SetAuth(&solDeposit).Build(), "0f01", 2, []int{1}},
+		{"SetFundingAuthority remove sol withdraw", fill(NewSetFundingAuthorityInstructionBuilder()).SetAuth(&solWithdraw).Build(), "0f02", 2, []int{1}},
 		{"SetManager", fill(NewSetManagerInstructionBuilder()).Build(), "0b", 4, []int{1, 2}},
 		{"SetStaker", fill(NewSetStakerInstructionBuilder()).Build(), "0d", 3, []int{1}},
 		{"SetPreferredValidator some", fill(NewSetPreferredValidatorInstructionBuilder()).SetValidatorType(PreferredValidatorTypeDeposit).SetValidatorVoteAddress(&newPK).Build(), "0500010900000000000000000000000000000000000000000000000000000000000007", 3, []int{1}},
@@ -252,4 +256,63 @@ func TestSetProgramIDReturnsRegistrationResult(t *testing.T) {
 	require.NoError(t, SetProgramID(other))
 	assert.Equal(t, other, ProgramID)
 	assert.NoError(t, SetProgramID(other), "registering the same decoder again is a no-op")
+}
+
+// Removing a funding authority sends only the pool and the manager; a zero key would instead
+// install the zero address as the new authority.
+func TestSetFundingAuthorityDecodesRemoval(t *testing.T) {
+	pool, manager := ag_solanago.Meta(testKey(1)).WRITE(), ag_solanago.Meta(testKey(2)).SIGNER()
+	for _, ft := range []FundingType{FundingTypeStakeDeposit, FundingTypeSolDeposit, FundingTypeSolWithdraw} {
+		decoded, err := DecodeInstruction([]*ag_solanago.AccountMeta{pool, manager}, []byte{Instruction_SetFundingAuthority, byte(ft)})
+		require.NoError(t, err, ft)
+		impl := decoded.Impl.(*SetFundingAuthority)
+		assert.Equal(t, ft, *impl.Auth)
+		assert.Nil(t, impl.GetNewFundingAuthority())
+		assert.Len(t, decoded.Accounts(), 2)
+		_, err = impl.ValidateAndBuild()
+		assert.NoError(t, err)
+	}
+
+	removal := NewSetFundingAuthorityInstruction(func() *FundingType { f := FundingTypeSolWithdraw; return &f }(), testKey(1), testKey(2), nil)
+	assert.Len(t, removal.Accounts, 2)
+	replacement := NewSetFundingAuthorityInstruction(func() *FundingType { f := FundingTypeSolWithdraw; return &f }(), testKey(1), testKey(2), func() *ag_solanago.PublicKey { k := testKey(3); return &k }())
+	require.Len(t, replacement.Accounts, 3)
+	assert.Equal(t, testKey(3), replacement.GetNewFundingAuthority().PublicKey)
+}
+
+// Setting a variable or optional account on a populated or decoded instruction replaces that
+// account and keeps everything after it.
+func TestSettingOptionalAccountsKeepsTheRest(t *testing.T) {
+	t.Run("update validator list balance", func(t *testing.T) {
+		b := fill(NewUpdateValidatorListBalanceInstructionBuilder()).SetArgs(UpdateValidatorListBalanceArgs{})
+		b.SetValidatorAndTransientAccounts([]ag_solanago.PublicKey{testKey(71), testKey(72), testKey(73), testKey(74)})
+		before := append([]*ag_solanago.AccountMeta(nil), b.Accounts...)
+		require.Len(t, before, 11)
+
+		b.SetValidatorStakeAccount(testKey(90))
+		require.Len(t, b.Accounts, 11, "the pairs after the first validator must survive")
+		assert.Equal(t, testKey(90), b.GetValidatorStakeAccount())
+		assert.Equal(t, before[8:], []*ag_solanago.AccountMeta(b.Accounts[8:]))
+
+		decoded, err := DecodeInstruction(before, []byte{Instruction_UpdateValidatorListBalance, 0, 0, 0, 0, 0})
+		require.NoError(t, err)
+		impl := decoded.Impl.(*UpdateValidatorListBalance)
+		impl.SetValidatorStakeAccount(testKey(91))
+		require.Len(t, impl.Accounts, 11)
+		assert.Equal(t, testKey(91), impl.GetValidatorStakeAccount())
+		assert.Equal(t, before[8:], []*ag_solanago.AccountMeta(impl.Accounts[8:]))
+	})
+	t.Run("withdraw sol authority", func(t *testing.T) {
+		b := fill(NewWithdrawSolBuilder()).SetSolWithdrawAuthority(testKey(80))
+		require.Len(t, b.Accounts, 13)
+		b.SetSolWithdrawAuthority(testKey(81))
+		require.Len(t, b.Accounts, 13)
+		assert.Equal(t, testKey(81), b.GetSolWithdrawAuthority().PublicKey)
+	})
+	t.Run("initialize deposit authority", func(t *testing.T) {
+		b := fill(NewInitializeInstructionBuilder()).SetDepositAuthorityAccount(testKey(82))
+		b.SetDepositAuthorityAccount(testKey(83))
+		require.Len(t, b.Accounts, 10)
+		assert.Equal(t, testKey(83), b.GetDepositAuthorityAccount().PublicKey)
+	})
 }

@@ -153,7 +153,7 @@ func (inst *WithdrawSol) SetTokenProgram(tokenProgram ag_solanago.PublicKey) *Wi
 }
 
 func (inst *WithdrawSol) SetSolWithdrawAuthority(solWithdrawAuthority ag_solanago.PublicKey) *WithdrawSol {
-	inst.Accounts = append(inst.Accounts[:12], ag_solanago.Meta(solWithdrawAuthority).SIGNER())
+	inst.Accounts = setAccount(inst.Accounts, 12, ag_solanago.Meta(solWithdrawAuthority).SIGNER())
 	return inst
 }
 
