@@ -17,6 +17,7 @@ package token
 
 import (
 	"errors"
+	"unicode/utf8"
 
 	ag_binary "github.com/gagliardetto/binary"
 	ag_treeout "github.com/gagliardetto/treeout"
@@ -77,7 +78,7 @@ func (inst *UiAmountToAmount) GetMintAccount() *ag_solanago.AccountMeta {
 
 func (inst UiAmountToAmount) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
-		Impl:   inst,
+		Impl:   &inst,
 		TypeID: ag_binary.TypeIDFromUint8(Instruction_UiAmountToAmount),
 	}}
 }
@@ -128,19 +129,22 @@ func (inst *UiAmountToAmount) EncodeToTree(parent ag_treeout.Branches) {
 }
 
 func (inst UiAmountToAmount) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
-	// Serialize `UiAmount` param:
-	err = encoder.Encode(inst.UiAmount)
-	if err != nil {
-		return err
+	if inst.UiAmount == nil {
+		return errors.New("uiAmount is not set")
 	}
-	return nil
+	// The SPL Token instruction carries the string as raw bytes, without a length prefix.
+	return encoder.WriteBytes([]byte(*inst.UiAmount), false)
 }
 func (inst *UiAmountToAmount) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
-	// Deserialize `UiAmount`:
-	err = decoder.Decode(&inst.UiAmount)
+	raw, err := decoder.ReadNBytes(decoder.Remaining())
 	if err != nil {
 		return err
 	}
+	if !utf8.Valid(raw) {
+		return errors.New("uiAmount is not valid UTF-8")
+	}
+	uiAmount := string(raw)
+	inst.UiAmount = &uiAmount
 	return nil
 }
 

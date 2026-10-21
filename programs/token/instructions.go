@@ -356,16 +356,16 @@ var InstructionImplDef = ag_binary.NewVariantDefinition(
 			Name: "InitializeMint2", Type: (*InitializeMint2)(nil),
 		},
 		{
-			"GetAccountDataSize", (*GetAccountDataSize)(nil),
+			Name: "GetAccountDataSize", Type: (*GetAccountDataSize)(nil),
 		},
 		{
-			"InitializeImmutableOwner", (*InitializeImmutableOwner)(nil),
+			Name: "InitializeImmutableOwner", Type: (*InitializeImmutableOwner)(nil),
 		},
 		{
-			"AmountToUiAmount", (*AmountToUiAmount)(nil),
+			Name: "AmountToUiAmount", Type: (*AmountToUiAmount)(nil),
 		},
 		{
-			"UiAmountToAmount", (*UiAmountToAmount)(nil),
+			Name: "UiAmountToAmount", Type: (*UiAmountToAmount)(nil),
 		},
 	},
 )

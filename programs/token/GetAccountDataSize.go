@@ -58,7 +58,7 @@ func NewGetAccountDataSizeInstructionBuilder() *GetAccountDataSize {
 }
 
 func (inst *GetAccountDataSize) SetMint(mint ag_solanago.PublicKey) *GetAccountDataSize {
-	inst.Accounts = ag_solanago.Meta(mint).WRITE()
+	inst.Accounts = ag_solanago.Meta(mint)
 	return inst
 }
 
@@ -68,7 +68,7 @@ func (inst *GetAccountDataSize) GetMint() *ag_solanago.AccountMeta {
 
 func (inst GetAccountDataSize) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
-		Impl:   inst,
+		Impl:   &inst,
 		TypeID: ag_binary.TypeIDFromUint8(Instruction_GetAccountDataSize),
 	}}
 }
