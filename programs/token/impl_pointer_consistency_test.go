@@ -91,6 +91,10 @@ func TestAllBuildersSetPointerImpl(t *testing.T) {
 		{"SetAuthority", (*SetAuthority)(nil), NewSetAuthorityInstructionBuilder().Build()},
 		{"SyncNative", (*SyncNative)(nil), NewSyncNativeInstructionBuilder().Build()},
 		{"ThawAccount", (*ThawAccount)(nil), NewThawAccountInstructionBuilder().Build()},
+		{"GetAccountDataSize", (*GetAccountDataSize)(nil), NewGetAccountDataSizeInstructionBuilder().Build()},
+		{"InitializeImmutableOwner", (*InitializeImmutableOwner)(nil), NewInitializeImmutableOwnerInstructionBuilder().Build()},
+		{"AmountToUiAmount", (*AmountToUiAmount)(nil), NewAmountToUiAmountInstructionBuilder().Build()},
+		{"UiAmountToAmount", (*UiAmountToAmount)(nil), NewUiAmountToAmountInstructionBuilder().Build()},
 		{"Transfer", (*Transfer)(nil), NewTransferInstructionBuilder().Build()},
 		{"TransferChecked", (*TransferChecked)(nil), NewTransferCheckedInstructionBuilder().Build()},
 	}

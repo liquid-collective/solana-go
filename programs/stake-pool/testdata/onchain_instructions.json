@@ -1,0 +1,98 @@
+{
+ "CleanupRemovedValidatorEntries": [
+  {
+   "accounts": 2,
+   "data": "08"
+  }
+ ],
+ "DepositSol": [
+  {
+   "accounts": 11,
+   "data": "0e00c2eb0b00000000"
+  },
+  {
+   "accounts": 11,
+   "data": "0e0065cd1d00000000"
+  }
+ ],
+ "DepositStake": [
+  {
+   "accounts": 15,
+   "data": "09"
+  }
+ ],
+ "IncreaseAdditionalValidatorStake": [
+  {
+   "accounts": 14,
+   "data": "1300105e5f0000000000000000000000009c4f7bef2f9adc18"
+  },
+  {
+   "accounts": 14,
+   "data": "1300ca9a3b000000000000000000000000559c6797806fde18"
+  }
+ ],
+ "Initialize": [
+  {
+   "accounts": 10,
+   "data": "001027000000000000000000000000000010270000000000000000000000000000102700000000000000000000000000000064000000"
+  }
+ ],
+ "SetFundingAuthority": [
+  {
+   "accounts": 3,
+   "data": "0f02"
+  }
+ ],
+ "UpdateStakePoolBalance": [
+  {
+   "accounts": 7,
+   "data": "07"
+  }
+ ],
+ "UpdateValidatorListBalance": [
+  {
+   "accounts": 11,
+   "data": "060000000000"
+  }
+ ],
+ "WithdrawSol": [
+  {
+   "accounts": 13,
+   "data": "1000bca06501000000"
+  },
+  {
+   "accounts": 13,
+   "data": "1000667fe200000000"
+  }
+ ],
+ "WithdrawSolWithSlippage": [
+  {
+   "accounts": 13,
+   "data": "1a00ca9a3b000000008033023b00000000"
+  },
+  {
+   "accounts": 13,
+   "data": "1a00ca9a3b000000000100000000000000"
+  }
+ ],
+ "WithdrawStake": [
+  {
+   "accounts": 14,
+   "data": "0a00ca9a3b00000000"
+  },
+  {
+   "accounts": 14,
+   "data": "0a7d9b111300000000"
+  }
+ ],
+ "WithdrawStakeWithSlippage": [
+  {
+   "accounts": 14,
+   "data": "183617a64000000000ffaa904100000000"
+  },
+  {
+   "accounts": 14,
+   "data": "18fd94a54000000000ffaa904100000000"
+  }
+ ]
+}
