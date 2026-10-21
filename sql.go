@@ -8,11 +8,23 @@ import (
 // liquid-collective patch: base58 text (de)serialization for database/sql, so PublicKey, Hash
 // and Signature can be stored in text columns. Not part of upstream solana-go.
 
+// scanText returns the text of a database value; drivers hand text columns over as string or []byte.
+func scanText(value interface{}, typ string) (string, error) {
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	default:
+		return "", fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %s", value, typ)
+	}
+}
+
 // Scan implements the sql.Scanner interface.
 func (p *PublicKey) Scan(value interface{}) error {
-	str, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type PublicKey", value)
+	str, err := scanText(value, "PublicKey")
+	if err != nil {
+		return err
 	}
 	pubKey, err := PublicKeyFromBase58(str)
 	if err != nil {
@@ -29,9 +41,9 @@ func (p PublicKey) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface.
 func (h *Hash) Scan(value interface{}) error {
-	str, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type Hash", value)
+	str, err := scanText(value, "Hash")
+	if err != nil {
+		return err
 	}
 	hash, err := HashFromBase58(str)
 	if err != nil {
@@ -48,9 +60,9 @@ func (h Hash) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface.
 func (s *Signature) Scan(value interface{}) error {
-	str, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type Signature", value)
+	str, err := scanText(value, "Signature")
+	if err != nil {
+		return err
 	}
 	sig, err := SignatureFromBase58(str)
 	if err != nil {

@@ -33,8 +33,24 @@ func TestSQLScanValueRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSQLScanRejectsNonString(t *testing.T) {
-	require.Error(t, new(PublicKey).Scan([]byte("x")))
+func TestSQLScanAcceptsByteBackedText(t *testing.T) {
+	pk := MustPublicKeyFromBase58("SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy")
+	hash := MustHashFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	sig := MustSignatureFromBase58("5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW")
+
+	var gotPK PublicKey
+	require.NoError(t, gotPK.Scan([]byte(pk.String())))
+	require.Equal(t, pk, gotPK)
+	var gotHash Hash
+	require.NoError(t, gotHash.Scan([]byte(hash.String())))
+	require.Equal(t, hash, gotHash)
+	var gotSig Signature
+	require.NoError(t, gotSig.Scan([]byte(sig.String())))
+	require.Equal(t, sig, gotSig)
+}
+
+func TestSQLScanRejectsOtherTypes(t *testing.T) {
+	require.Error(t, new(PublicKey).Scan(7))
 	require.Error(t, new(Hash).Scan(42))
 	require.Error(t, new(Signature).Scan(nil))
 }
