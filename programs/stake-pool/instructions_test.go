@@ -243,3 +243,13 @@ func TestUpdateValidatorListBalanceAppendsValidatorAccounts(t *testing.T) {
 	_, err := b.ValidateAndBuild()
 	assert.NoError(t, err)
 }
+
+func TestSetProgramIDReturnsRegistrationResult(t *testing.T) {
+	original := ProgramID
+	t.Cleanup(func() { ProgramID = original })
+
+	other := testKey(80)
+	require.NoError(t, SetProgramID(other))
+	assert.Equal(t, other, ProgramID)
+	assert.NoError(t, SetProgramID(other), "registering the same decoder again is a no-op")
+}
