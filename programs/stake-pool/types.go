@@ -149,10 +149,10 @@ type AdditionalValidatorStakeArgs struct {
 type PreferredValidatorType uint8
 
 const (
-	// Preferred validator is a validator in the validator list
-	PreferredValidatorTypeValidator PreferredValidatorType = iota
-	// Preferred validator is a validator not in the validator list
-	PreferredValidatorTypeUntrustedValidator
+	// Preferred validator for deposits
+	PreferredValidatorTypeDeposit PreferredValidatorType = iota
+	// Preferred validator for withdrawals
+	PreferredValidatorTypeWithdraw
 )
 
 type UpdateValidatorListBalanceArgs struct {

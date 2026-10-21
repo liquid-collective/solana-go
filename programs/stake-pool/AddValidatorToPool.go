@@ -42,25 +42,6 @@ type AddValidatorToPool struct {
 	// [11] = [] systemProgram
 	// [12] = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-}
-
-func (inst *AddValidatorToPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
-}
-
-func (inst *AddValidatorToPool) SetSigners(signers ag_solanago.AccountMetaSlice) *AddValidatorToPool {
-	inst.Signers = signers
-	return inst
-}
-
-func (inst *AddValidatorToPool) GetSigners() []*ag_solanago.AccountMeta {
-	return inst.Signers
-}
-
-func (inst *AddValidatorToPool) GetAccounts() []*ag_solanago.AccountMeta {
-	return inst.Accounts
 }
 
 func NewAddValidatorToPoolInstruction(
@@ -101,7 +82,6 @@ func NewAddValidatorToPoolInstruction(
 func NewAddValidatorToPoolBuilder() *AddValidatorToPool {
 	return &AddValidatorToPool{
 		Accounts: make(ag_solanago.AccountMetaSlice, 13),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -117,7 +97,6 @@ func (inst *AddValidatorToPool) SetStakePool(pool ag_solanago.PublicKey) *AddVal
 
 func (inst *AddValidatorToPool) SetStaker(staker ag_solanago.PublicKey) *AddValidatorToPool {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = inst.Accounts[1]
 	return inst
 }
 
@@ -277,41 +256,56 @@ func (inst *AddValidatorToPool) EncodeToTree(parent ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("         system_program", inst.Accounts.Get(11)))
 						accountsBranch.Child(ag_format.Meta("          stake_program", inst.Accounts.Get(12)))
 
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *AddValidatorToPool) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.OptionalSeed == nil {
-		var seed uint32 = 0
-		inst.OptionalSeed = &seed // set default zero seed value
+	var optionalSeed uint32
+	if inst.OptionalSeed != nil {
+		optionalSeed = *inst.OptionalSeed
 	}
-
-	return encoder.Encode(inst.OptionalSeed)
+	if err := encoder.WriteUint32(optionalSeed, ag_binary.LE); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (inst *AddValidatorToPool) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
-	if inst.OptionalSeed == nil {
-		var seed uint32 = 0
-		inst.OptionalSeed = &seed // set default zero seed value
+func (inst *AddValidatorToPool) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
+	optionalSeed, err := decoder.ReadUint32(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-
-	return decoder.Decode(inst.OptionalSeed)
+	inst.OptionalSeed = &optionalSeed
+	return nil
 }
 
 func (inst *AddValidatorToPool) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 13; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[13:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[1].IsSigner {
 		return errors.New("accounts.Staker should be a signer")
 	}
+	return nil
+}
+
+func (inst *AddValidatorToPool) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *AddValidatorToPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 13 {
+		return fmt.Errorf("insufficient accounts, AddValidatorToPool requires at-least 13 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

@@ -39,7 +39,6 @@ type UpdateValidatorListBalance struct {
 	// [6] = [] stakeProgram
 	// [7..N] = [] validatorAndTransientStakeAccounts
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewUpdateValidatorListBalanceInstruction(
@@ -71,17 +70,7 @@ func NewUpdateValidatorListBalanceInstruction(
 func NewUpdateValidatorListBalanceInstructionBuilder() *UpdateValidatorListBalance {
 	return &UpdateValidatorListBalance{
 		Accounts: make(ag_solanago.AccountMetaSlice, 7),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
-}
-
-func (inst *UpdateValidatorListBalance) GetAccounts() []*ag_solanago.AccountMeta {
-	return inst.Accounts
-}
-
-func (inst *UpdateValidatorListBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
 }
 
 func (inst *UpdateValidatorListBalance) SetArgs(args UpdateValidatorListBalanceArgs) *UpdateValidatorListBalance {
@@ -118,7 +107,7 @@ func (inst *UpdateValidatorListBalance) SetValidatorAndTransientAccounts(account
 }
 
 func (inst *UpdateValidatorListBalance) SetValidatorStakeAccount(validatorStakeAccount ag_solanago.PublicKey) *UpdateValidatorListBalance {
-	inst.Accounts[7] = ag_solanago.Meta(validatorStakeAccount).WRITE()
+	inst.Accounts = append(inst.Accounts[:7], ag_solanago.Meta(validatorStakeAccount).WRITE())
 	return inst
 }
 
@@ -166,10 +155,16 @@ func (inst *UpdateValidatorListBalance) GetStakeProgram() ag_solanago.PublicKey 
 }
 
 func (inst *UpdateValidatorListBalance) GetValidatorStakeAccount() ag_solanago.PublicKey {
+	if len(inst.Accounts) <= 7 {
+		return ag_solanago.PublicKey{}
+	}
 	return inst.Accounts[7].PublicKey
 }
 
 func (inst *UpdateValidatorListBalance) GetTransientStakeAccount() ag_solanago.PublicKey {
+	if len(inst.Accounts) <= 8 {
+		return ag_solanago.PublicKey{}
+	}
 	return inst.Accounts[8].PublicKey
 }
 
@@ -198,35 +193,44 @@ func (inst *UpdateValidatorListBalance) EncodeToTree(parent ag_treeout.Branches)
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *UpdateValidatorListBalance) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	// Serialize `Args` param:
-	return encoder.Encode(inst.Args)
+	if inst.Args == nil {
+		return errors.New("args is not set")
+	}
+	if err := inst.Args.MarshalWithEncoder(encoder); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (inst *UpdateValidatorListBalance) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	return decoder.Decode(&inst.Args)
+	args := new(UpdateValidatorListBalanceArgs)
+	if err := args.UnmarshalWithDecoder(decoder); err != nil {
+		return err
+	}
+	inst.Args = args
+	return nil
 }
 
 func (inst *UpdateValidatorListBalance) Validate() error {
 	if inst.Args == nil {
-		return errors.New("Args parameter is not set")
+		return errors.New("args is not set")
 	}
-
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 7; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-
+	for _, account := range inst.Accounts[7:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
 	return nil
 }
 
@@ -253,4 +257,16 @@ func (inst *UpdateValidatorListBalance) FindStakeProgramAddress(programID ag_sol
 
 	// Find Program Address (PDA)
 	return ag_solanago.FindProgramAddress(seeds, programID)
+}
+
+func (inst *UpdateValidatorListBalance) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *UpdateValidatorListBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 7 {
+		return fmt.Errorf("insufficient accounts, UpdateValidatorListBalance requires at-least 7 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
+	return nil
 }

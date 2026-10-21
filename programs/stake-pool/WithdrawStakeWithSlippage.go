@@ -43,7 +43,6 @@ type WithdrawStakeWithSlippage struct {
 	// [11] = []tokenProgram
 	// [12] = []stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewWithdrawStakeWithSlippageInstruction(
@@ -86,7 +85,6 @@ func NewWithdrawStakeWithSlippageInstruction(
 func NewWithdrawStakeWithSlippageInstructionBuilder() *WithdrawStakeWithSlippage {
 	return &WithdrawStakeWithSlippage{
 		Accounts: make(ag_solanago.AccountMetaSlice, 13),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -132,7 +130,6 @@ func (inst *WithdrawStakeWithSlippage) SetBeneficiary(beneficiary ag_solanago.Pu
 
 func (inst *WithdrawStakeWithSlippage) SetTransferAuthority(authority ag_solanago.PublicKey) *WithdrawStakeWithSlippage {
 	inst.Accounts[6] = ag_solanago.Meta(authority).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(authority).SIGNER()
 	return inst
 }
 
@@ -259,67 +256,72 @@ func (inst *WithdrawStakeWithSlippage) EncodeToTree(parent ag_treeout.Branches) 
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *WithdrawStakeWithSlippage) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.PoolTokensIn != nil {
-		if err := encoder.Encode(inst.PoolTokensIn); err != nil {
-			return err
-		}
+	if inst.PoolTokensIn == nil {
+		return errors.New("poolTokensIn is not set")
 	}
-	if inst.MinLamportsOut != nil {
-		if err := encoder.Encode(inst.MinLamportsOut); err != nil {
-			return err
-		}
+	if err := encoder.WriteUint64(*inst.PoolTokensIn, ag_binary.LE); err != nil {
+		return err
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if inst.MinLamportsOut == nil {
+		return errors.New("minLamportsOut is not set")
+	}
+	if err := encoder.WriteUint64(*inst.MinLamportsOut, ag_binary.LE); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *WithdrawStakeWithSlippage) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.PoolTokensIn != nil {
-		if err := decoder.Decode(inst.PoolTokensIn); err != nil {
-			return err
-		}
+	poolTokensIn, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	if inst.MinLamportsOut != nil {
-		if err := decoder.Decode(inst.MinLamportsOut); err != nil {
-			return err
-		}
+	inst.PoolTokensIn = &poolTokensIn
+	minLamportsOut, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.MinLamportsOut = &minLamportsOut
 	return nil
 }
 
 func (inst *WithdrawStakeWithSlippage) Validate() error {
 	if inst.PoolTokensIn == nil {
-		return errors.New("PoolTokensIn is not set")
+		return errors.New("poolTokensIn is not set")
 	}
 	if inst.MinLamportsOut == nil {
-		return errors.New("MinLamportsOut is not set")
+		return errors.New("minLamportsOut is not set")
 	}
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 13; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[13:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[6].IsSigner {
 		return errors.New("accounts.TransferAuthority should be a signer")
 	}
+	return nil
+}
+
+func (inst *WithdrawStakeWithSlippage) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *WithdrawStakeWithSlippage) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 13 {
+		return fmt.Errorf("insufficient accounts, WithdrawStakeWithSlippage requires at-least 13 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

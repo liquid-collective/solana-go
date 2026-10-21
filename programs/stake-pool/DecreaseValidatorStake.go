@@ -40,7 +40,6 @@ type DecreaseValidatorStake struct {
 	// [8] = [] systemProgram
 	// [9] = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewDecreaseValidatorStakeInstruction(
@@ -77,7 +76,6 @@ func NewDecreaseValidatorStakeInstruction(
 func NewDecreaseValidatorStakeInstructionBuilder() *DecreaseValidatorStake {
 	return &DecreaseValidatorStake{
 		Accounts: make(ag_solanago.AccountMetaSlice, 10),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -98,7 +96,6 @@ func (inst *DecreaseValidatorStake) SetStakePool(pool ag_solanago.PublicKey) *De
 
 func (inst *DecreaseValidatorStake) SetStaker(staker ag_solanago.PublicKey) *DecreaseValidatorStake {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
@@ -223,50 +220,38 @@ func (inst *DecreaseValidatorStake) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *DecreaseValidatorStake) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.Lamports != nil {
-		if err := encoder.Encode(inst.Lamports); err != nil {
-			return err
-		}
+	if inst.Lamports == nil {
+		return errors.New("lamports is not set")
 	}
-	if inst.TransientStakeSeed != nil {
-		if err := encoder.Encode(inst.TransientStakeSeed); err != nil {
-			return err
-		}
+	if err := encoder.WriteUint64(*inst.Lamports, ag_binary.LE); err != nil {
+		return err
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if inst.TransientStakeSeed == nil {
+		return errors.New("transientStakeSeed is not set")
+	}
+	if err := encoder.WriteUint64(*inst.TransientStakeSeed, ag_binary.LE); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *DecreaseValidatorStake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.Lamports != nil {
-		if err := decoder.Decode(inst.Lamports); err != nil {
-			return err
-		}
+	lamports, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	if inst.TransientStakeSeed != nil {
-		if err := decoder.Decode(inst.TransientStakeSeed); err != nil {
-			return err
-		}
+	inst.Lamports = &lamports
+	transientStakeSeed, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.TransientStakeSeed = &transientStakeSeed
 	return nil
 }
 
@@ -277,13 +262,30 @@ func (inst *DecreaseValidatorStake) Validate() error {
 	if inst.TransientStakeSeed == nil {
 		return errors.New("transientStakeSeed is not set")
 	}
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 10; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[10:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[1].IsSigner {
 		return errors.New("accounts.Staker should be a signer")
 	}
+	return nil
+}
+
+func (inst *DecreaseValidatorStake) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *DecreaseValidatorStake) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 10 {
+		return fmt.Errorf("insufficient accounts, DecreaseValidatorStake requires at-least 10 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

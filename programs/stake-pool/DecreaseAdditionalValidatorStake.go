@@ -41,7 +41,6 @@ type DecreaseAdditionalValidatorStake struct {
 	// [10] = [] systemProgram
 	// [11] = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewDecreaseAdditionalValidatorStakeInstruction(
@@ -80,7 +79,6 @@ func NewDecreaseAdditionalValidatorStakeInstruction(
 func NewDecreaseAdditionalValidatorStakeBuilder() *DecreaseAdditionalValidatorStake {
 	return &DecreaseAdditionalValidatorStake{
 		Accounts: make(ag_solanago.AccountMetaSlice, 12),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 
 }
@@ -97,7 +95,6 @@ func (inst *DecreaseAdditionalValidatorStake) SetStakePool(stakePool ag_solanago
 
 func (inst *DecreaseAdditionalValidatorStake) SetStaker(staker ag_solanago.PublicKey) *DecreaseAdditionalValidatorStake {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
@@ -235,40 +232,27 @@ func (inst *DecreaseAdditionalValidatorStake) EncodeToTree(parent ag_treeout.Bra
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
 
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *DecreaseAdditionalValidatorStake) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.Args != nil {
-		if err := encoder.Encode(inst.Args); err != nil {
-			return err
-		}
+	if inst.Args == nil {
+		return errors.New("args is not set")
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if err := writeAdditionalValidatorStakeArgs(encoder, inst.Args); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *DecreaseAdditionalValidatorStake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.Args != nil {
-		if err := decoder.Decode(inst.Args); err != nil {
-			return err
-		}
+	args, err := readAdditionalValidatorStakeArgs(decoder)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.Args = args
 	return nil
 }
 
@@ -276,14 +260,30 @@ func (inst *DecreaseAdditionalValidatorStake) Validate() error {
 	if inst.Args == nil {
 		return errors.New("args is not set")
 	}
-
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 12; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[12:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[1].IsSigner {
 		return errors.New("accounts.Staker should be a signer")
 	}
+	return nil
+}
+
+func (inst *DecreaseAdditionalValidatorStake) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *DecreaseAdditionalValidatorStake) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 12 {
+		return fmt.Errorf("insufficient accounts, DecreaseAdditionalValidatorStake requires at-least 12 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

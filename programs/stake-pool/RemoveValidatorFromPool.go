@@ -36,25 +36,6 @@ type RemoveValidatorFromPool struct {
 	// [6]  = [] clock
 	// [7]  = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-}
-
-func (inst *RemoveValidatorFromPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
-}
-
-func (inst *RemoveValidatorFromPool) SetSigners(signers ag_solanago.AccountMetaSlice) *RemoveValidatorFromPool {
-	inst.Signers = signers
-	return inst
-}
-
-func (inst *RemoveValidatorFromPool) GetSigners() []*ag_solanago.AccountMeta {
-	return inst.Signers
-}
-
-func (inst *RemoveValidatorFromPool) GetAccounts() []*ag_solanago.AccountMeta {
-	return inst.Accounts
 }
 
 func NewRemoveValidatorFromPoolInstruction(
@@ -82,7 +63,6 @@ func NewRemoveValidatorFromPoolInstruction(
 func NewRemoveValidatorFromPoolInstructionBuilder() *RemoveValidatorFromPool {
 	return &RemoveValidatorFromPool{
 		Accounts: make(ag_solanago.AccountMetaSlice, 8),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -93,7 +73,6 @@ func (inst *RemoveValidatorFromPool) SetStakePool(pool ag_solanago.PublicKey) *R
 
 func (inst *RemoveValidatorFromPool) SetStaker(staker ag_solanago.PublicKey) *RemoveValidatorFromPool {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
@@ -184,10 +163,6 @@ func (inst *RemoveValidatorFromPool) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
@@ -202,13 +177,27 @@ func (inst *RemoveValidatorFromPool) UnmarshalWithDecoder(decoder *ag_binary.Dec
 }
 
 func (inst *RemoveValidatorFromPool) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 8; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
-		return errors.New("accounts.Staker should be a signer")
+	for _, account := range inst.Accounts[8:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
 	}
+	return nil
+}
+
+func (inst *RemoveValidatorFromPool) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *RemoveValidatorFromPool) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 8 {
+		return fmt.Errorf("insufficient accounts, RemoveValidatorFromPool requires at-least 8 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

@@ -42,7 +42,6 @@ type WithdrawSol struct {
 	// [11] = [] tokenProgram
 	// [12] = [SIGNER] solWithdrawAuthority
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewWithdrawSolInstruction(
@@ -59,9 +58,10 @@ func NewWithdrawSolInstruction(
 	sysvarStakeHistory ag_solanago.PublicKey,
 	stakeProgram ag_solanago.PublicKey,
 	tokenProgram ag_solanago.PublicKey,
-	solWithdrawAuthority ag_solanago.PublicKey,
+	// solWithdrawAuthority is nil unless the pool restricts SOL withdrawals.
+	solWithdrawAuthority *ag_solanago.PublicKey,
 ) *WithdrawSol {
-	return NewWithdrawSolBuilder().
+	inst := NewWithdrawSolBuilder().
 		SetArg(arg).
 		SetStakePool(stakePool).
 		SetWithdrawAuthority(withdrawAuthority).
@@ -74,14 +74,16 @@ func NewWithdrawSolInstruction(
 		SetSysvarClock(sysvarClock).
 		SetSysvarStakeHistory(sysvarStakeHistory).
 		SetStakeProgram(stakeProgram).
-		SetTokenProgram(tokenProgram).
-		SetSolWithdrawAuthority(solWithdrawAuthority)
+		SetTokenProgram(tokenProgram)
+	if solWithdrawAuthority != nil {
+		inst.SetSolWithdrawAuthority(*solWithdrawAuthority)
+	}
+	return inst
 }
 
 func NewWithdrawSolBuilder() *WithdrawSol {
 	return &WithdrawSol{
-		Accounts: make(ag_solanago.AccountMetaSlice, 13),
-		Signers:  make(ag_solanago.AccountMetaSlice, 0),
+		Accounts: make(ag_solanago.AccountMetaSlice, 12),
 	}
 }
 
@@ -151,8 +153,7 @@ func (inst *WithdrawSol) SetTokenProgram(tokenProgram ag_solanago.PublicKey) *Wi
 }
 
 func (inst *WithdrawSol) SetSolWithdrawAuthority(solWithdrawAuthority ag_solanago.PublicKey) *WithdrawSol {
-	inst.Accounts[12] = ag_solanago.Meta(solWithdrawAuthority).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(solWithdrawAuthority).SIGNER()
+	inst.Accounts = append(inst.Accounts[:12], ag_solanago.Meta(solWithdrawAuthority).SIGNER())
 	return inst
 }
 
@@ -208,8 +209,12 @@ func (inst *WithdrawSol) GetTokenProgram() ag_solanago.PublicKey {
 	return inst.Accounts[11].PublicKey
 }
 
-func (inst *WithdrawSol) GetSolWithdrawAuthority() ag_solanago.PublicKey {
-	return inst.Accounts[12].PublicKey
+// GetSolWithdrawAuthority returns nil when the pool has no SOL withdraw authority.
+func (inst *WithdrawSol) GetSolWithdrawAuthority() *ag_solanago.AccountMeta {
+	if len(inst.Accounts) <= 12 {
+		return nil
+	}
+	return inst.Accounts[12]
 }
 
 func (inst *WithdrawSol) ValidateAndBuild() (*Instruction, error) {
@@ -242,40 +247,27 @@ func (inst *WithdrawSol) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *WithdrawSol) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.Arg != nil {
-		if err := encoder.Encode(inst.Arg); err != nil {
-			return err
-		}
+	if inst.Arg == nil {
+		return errors.New("arg is not set")
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if err := encoder.WriteUint64(*inst.Arg, ag_binary.LE); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *WithdrawSol) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.Arg != nil {
-		if err := decoder.Decode(inst.Arg); err != nil {
-			return err
-		}
+	arg, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.Arg = &arg
 	return nil
 }
 
@@ -283,13 +275,30 @@ func (inst *WithdrawSol) Validate() error {
 	if inst.Arg == nil {
 		return errors.New("arg is not set")
 	}
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 12; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
-		return errors.New("accounts.solWithdrawAuthority should be a signer")
+	for _, account := range inst.Accounts[12:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
 	}
+	if !inst.Accounts[2].IsSigner {
+		return errors.New("accounts.TransferAuthority should be a signer")
+	}
+	return nil
+}
+
+func (inst *WithdrawSol) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *WithdrawSol) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 12 {
+		return fmt.Errorf("insufficient accounts, WithdrawSol requires at-least 12 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

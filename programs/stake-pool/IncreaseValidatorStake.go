@@ -44,7 +44,6 @@ type IncreaseValidatorStake struct {
 	// [12] = [] systemProgram
 	// [13] = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewIncreaseValidatorStakeInstruction(
@@ -89,7 +88,6 @@ func NewIncreaseValidatorStakeInstruction(
 func NewIncreaseValidatorStakeInstructionBuilder() *IncreaseValidatorStake {
 	return &IncreaseValidatorStake{
 		Accounts: make(ag_solanago.AccountMetaSlice, 14),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -110,7 +108,6 @@ func (inst *IncreaseValidatorStake) SetStakePool(pool ag_solanago.PublicKey) *In
 
 func (inst *IncreaseValidatorStake) SetStaker(staker ag_solanago.PublicKey) *IncreaseValidatorStake {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
@@ -271,50 +268,38 @@ func (inst *IncreaseValidatorStake) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *IncreaseValidatorStake) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.Lamports != nil {
-		if err := encoder.Encode(inst.Lamports); err != nil {
-			return err
-		}
+	if inst.Lamports == nil {
+		return errors.New("lamports is not set")
 	}
-	if inst.TransientStakeSeed != nil {
-		if err := encoder.Encode(inst.TransientStakeSeed); err != nil {
-			return err
-		}
+	if err := encoder.WriteUint64(*inst.Lamports, ag_binary.LE); err != nil {
+		return err
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if inst.TransientStakeSeed == nil {
+		return errors.New("transientStakeSeed is not set")
+	}
+	if err := encoder.WriteUint64(*inst.TransientStakeSeed, ag_binary.LE); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *IncreaseValidatorStake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.Lamports != nil {
-		if err := decoder.Decode(inst.Lamports); err != nil {
-			return err
-		}
+	lamports, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	if inst.TransientStakeSeed != nil {
-		if err := decoder.Decode(inst.TransientStakeSeed); err != nil {
-			return err
-		}
+	inst.Lamports = &lamports
+	transientStakeSeed, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	for j := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[j]); err != nil {
-			return err
-		}
-	}
+	inst.TransientStakeSeed = &transientStakeSeed
 	return nil
 }
 
@@ -323,15 +308,32 @@ func (inst *IncreaseValidatorStake) Validate() error {
 		return errors.New("lamports is not set")
 	}
 	if inst.TransientStakeSeed == nil {
-		return errors.New("TransientStakeSeed is not set")
+		return errors.New("transientStakeSeed is not set")
 	}
-	for j, account := range inst.Accounts {
-		if account == nil {
-			return fmt.Errorf("accounts[%v] is not set", j)
+	for i := 0; i < 14; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
+			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[14:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[1].IsSigner {
 		return errors.New("accounts.Staker should be a signer")
 	}
+	return nil
+}
+
+func (inst *IncreaseValidatorStake) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *IncreaseValidatorStake) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 14 {
+		return fmt.Errorf("insufficient accounts, IncreaseValidatorStake requires at-least 14 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

@@ -16,6 +16,7 @@
 package stakepool
 
 import (
+	"errors"
 	"fmt"
 
 	ag_binary "github.com/gagliardetto/binary"
@@ -60,14 +61,6 @@ func NewUpdateStakePoolBalanceInstructionBuilder() *UpdateStakePoolBalance {
 	return &UpdateStakePoolBalance{
 		Accounts: make(ag_solanago.AccountMetaSlice, 7),
 	}
-}
-func (inst *UpdateStakePoolBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
-}
-
-func (inst *UpdateStakePoolBalance) GetAccounts() (accounts []*ag_solanago.AccountMeta) {
-	return inst.Accounts
 }
 
 func (inst *UpdateStakePoolBalance) SetStakePool(pool ag_solanago.PublicKey) *UpdateStakePoolBalance {
@@ -172,10 +165,27 @@ func (inst *UpdateStakePoolBalance) UnmarshalWithDecoder(decoder *ag_binary.Deco
 }
 
 func (inst *UpdateStakePoolBalance) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 7; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
+	for _, account := range inst.Accounts[7:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	return nil
+}
+
+func (inst *UpdateStakePoolBalance) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *UpdateStakePoolBalance) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 7 {
+		return fmt.Errorf("insufficient accounts, UpdateStakePoolBalance requires at-least 7 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

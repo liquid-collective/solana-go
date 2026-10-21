@@ -41,32 +41,14 @@ type Initialize struct {
 	// [6] = [WRITE] poolMint
 	// [7] = [WRITE] managerFeeAccount
 	// [8] = [] tokenProgram
-	// [9] = [] depositAuthority
+	// [9] = [SIGNER] depositAuthority (optional, omitted for a permissionless pool)
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-}
-
-func (i *Initialize) SetAccounts(accounts []*ag_solanago.AccountMeta) *Initialize {
-	i.Accounts = accounts
-	return i
-}
-
-func (i *Initialize) GetAccounts() (accounts []*ag_solanago.AccountMeta) {
-	accounts = append(accounts, i.Accounts...)
-	accounts = append(accounts, i.Signers...)
-	return
 }
 
 func NewInitializeInstructionBuilder() *Initialize {
 	return &Initialize{
-		Accounts: make(ag_solanago.AccountMetaSlice, 10),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
+		Accounts: make(ag_solanago.AccountMetaSlice, 9),
 	}
-}
-
-func (i *Initialize) SetSigners(signers []*ag_solanago.AccountMeta) *Initialize {
-	i.Signers = signers
-	return i
 }
 
 func (i *Initialize) SetStakePoolAccount(account ag_solanago.PublicKey) *Initialize {
@@ -80,7 +62,6 @@ func (i *Initialize) GetStakePoolAccount() *ag_solanago.AccountMeta {
 
 func (i *Initialize) SetManagerAccount(account ag_solanago.PublicKey) *Initialize {
 	i.Accounts[1] = ag_solanago.Meta(account).SIGNER()
-	i.Signers[0] = ag_solanago.Meta(account).SIGNER()
 	return i
 }
 
@@ -151,9 +132,19 @@ func (i *Initialize) GetTokenProgramAccount() *ag_solanago.AccountMeta {
 	return i.Accounts[8]
 }
 
+// SetDepositAuthorityAccount makes deposits require this authority's signature (a private pool).
+// Leave it unset for a permissionless pool.
 func (i *Initialize) SetDepositAuthorityAccount(account ag_solanago.PublicKey) *Initialize {
-	i.Accounts[9] = ag_solanago.Meta(account)
+	i.Accounts = append(i.Accounts[:9], ag_solanago.Meta(account).SIGNER())
 	return i
+}
+
+// GetDepositAuthorityAccount returns nil for a permissionless pool.
+func (i *Initialize) GetDepositAuthorityAccount() *ag_solanago.AccountMeta {
+	if len(i.Accounts) <= 9 {
+		return nil
+	}
+	return i.Accounts[9]
 }
 
 func (i *Initialize) ValidateAndBuild() (*Instruction, error) {
@@ -179,11 +170,21 @@ func (i *Initialize) EncodeToTree(parent ag_treeout.Branches) {
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 					// Parameters of the instruction:
 					instructionBranch.Child("Params").ParentFunc(func(paramsBranch ag_treeout.Branches) {
-						paramsBranch.Child(ag_format.Param("Fee", *i.Fee))
-						paramsBranch.Child(ag_format.Param("WithdrawalFee", *i.WithdrawalFee))
-						paramsBranch.Child(ag_format.Param("DepositFee", *i.DepositFee))
-						paramsBranch.Child(ag_format.Param("ReferralFee", *i.ReferralFee))
-						paramsBranch.Child(ag_format.Param("MaxValidators", *i.MaxValidators))
+						if i.Fee != nil {
+							paramsBranch.Child(ag_format.Param("Fee", *i.Fee))
+						}
+						if i.WithdrawalFee != nil {
+							paramsBranch.Child(ag_format.Param("WithdrawalFee", *i.WithdrawalFee))
+						}
+						if i.DepositFee != nil {
+							paramsBranch.Child(ag_format.Param("DepositFee", *i.DepositFee))
+						}
+						if i.ReferralFee != nil {
+							paramsBranch.Child(ag_format.Param("ReferralFee", *i.ReferralFee))
+						}
+						if i.MaxValidators != nil {
+							paramsBranch.Child(ag_format.Param("MaxValidators", *i.MaxValidators))
+						}
 					})
 
 					// Accounts of the instructions:
@@ -197,12 +198,8 @@ func (i *Initialize) EncodeToTree(parent ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("poolMint", i.Accounts[6]))
 						accountsBranch.Child(ag_format.Meta("managerFeeAccount", i.Accounts[7]))
 						accountsBranch.Child(ag_format.Meta("tokenProgram", i.Accounts[8]))
-						accountsBranch.Child(ag_format.Meta("depositAuthority", i.Accounts[9]))
-
-						// Signers of the instructions:
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(i.Signers)))
-						for j, signer := range i.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
+						if len(i.Accounts) > 9 {
+							accountsBranch.Child(ag_format.Meta("depositAuthority", i.Accounts[9]))
 						}
 					})
 				})
@@ -210,50 +207,48 @@ func (i *Initialize) EncodeToTree(parent ag_treeout.Branches) {
 }
 
 func (i *Initialize) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if err := encoder.Encode(i.Fee); err != nil {
-		return err
+	for name, fee := range map[string]*Fee{"fee": i.Fee, "withdrawalFee": i.WithdrawalFee, "depositFee": i.DepositFee} {
+		if fee == nil {
+			return fmt.Errorf("%s is not set", name)
+		}
 	}
-	if err := encoder.Encode(i.WithdrawalFee); err != nil {
-		return err
+	if i.ReferralFee == nil {
+		return errors.New("referralFee is not set")
 	}
-	if err := encoder.Encode(i.DepositFee); err != nil {
-		return err
+	if i.MaxValidators == nil {
+		return errors.New("maxValidators is not set")
 	}
-	if err := encoder.Encode(i.ReferralFee); err != nil {
-		return err
-	}
-	if err := encoder.Encode(i.MaxValidators); err != nil {
-		return err
-	}
-	for _, account := range i.Accounts {
-		if err := encoder.Encode(account); err != nil {
+	for _, fee := range []*Fee{i.Fee, i.WithdrawalFee, i.DepositFee} {
+		if err := writeFee(encoder, *fee); err != nil {
 			return err
 		}
 	}
-	return nil
+	if err := encoder.WriteUint8(*i.ReferralFee); err != nil {
+		return err
+	}
+	return encoder.WriteUint32(*i.MaxValidators, ag_binary.LE)
 }
 
 func (i *Initialize) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if err := decoder.Decode(&i.Fee); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&i.WithdrawalFee); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&i.DepositFee); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&i.ReferralFee); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&i.MaxValidators); err != nil {
-		return err
-	}
-	for j := range i.Accounts {
-		if err := decoder.Decode(&i.Accounts[j]); err != nil {
+	var fees [3]Fee
+	for j := range fees {
+		fee, err := readFee(decoder)
+		if err != nil {
 			return err
 		}
+		fees[j] = fee
 	}
+	referralFee, err := decoder.ReadUint8()
+	if err != nil {
+		return err
+	}
+	maxValidators, err := decoder.ReadUint32(ag_binary.LE)
+	if err != nil {
+		return err
+	}
+	i.Fee, i.WithdrawalFee, i.DepositFee = &fees[0], &fees[1], &fees[2]
+	i.ReferralFee = &referralFee
+	i.MaxValidators = &maxValidators
 	return nil
 }
 
@@ -273,14 +268,29 @@ func (i *Initialize) Validate() error {
 	if i.MaxValidators == nil {
 		return errors.New("maxValidators is not set")
 	}
-	for j, account := range i.Accounts {
-		if account == nil {
+	for j := 0; j < 9; j++ {
+		if j >= len(i.Accounts) || i.Accounts[j] == nil {
 			return fmt.Errorf("accounts[%v] is not set", j)
 		}
 	}
-	if len(i.Signers) == 0 || !i.Signers[0].IsSigner {
+	if !i.Accounts[1].IsSigner {
 		return errors.New("accounts.Manager should be a signer")
 	}
+	if len(i.Accounts) > 9 && (i.Accounts[9] == nil || !i.Accounts[9].IsSigner) {
+		return errors.New("accounts.DepositAuthority should be a signer")
+	}
+	return nil
+}
+
+func (i *Initialize) GetAccounts() []*ag_solanago.AccountMeta {
+	return i.Accounts
+}
+
+func (i *Initialize) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 9 {
+		return fmt.Errorf("insufficient accounts, Initialize requires at-least 9 accounts not %d", len(accounts))
+	}
+	i.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }
 
@@ -326,9 +336,10 @@ func NewInitializeInstruction(
 	poolMint ag_solanago.PublicKey,
 	managerFeeAccount ag_solanago.PublicKey,
 	tokenProgram ag_solanago.PublicKey,
-	depositAuthority ag_solanago.PublicKey,
+	// depositAuthority is nil for a permissionless pool.
+	depositAuthority *ag_solanago.PublicKey,
 ) *Initialize {
-	return NewInitializeInstructionBuilder().
+	inst := NewInitializeInstructionBuilder().
 		SetFee(fee).
 		SetWithdrawalFee(withdrawalFee).
 		SetDepositFee(depositFee).
@@ -342,6 +353,9 @@ func NewInitializeInstruction(
 		SetReserveStakeAccount(reserveStake).
 		SetPoolMintAccount(poolMint).
 		SetManagerFeeAccount(managerFeeAccount).
-		SetTokenProgramAccount(tokenProgram).
-		SetDepositAuthorityAccount(depositAuthority)
+		SetTokenProgramAccount(tokenProgram)
+	if depositAuthority != nil {
+		inst.SetDepositAuthorityAccount(*depositAuthority)
+	}
+	return inst
 }

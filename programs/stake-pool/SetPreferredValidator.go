@@ -33,7 +33,6 @@ type SetPreferredValidator struct {
 	// [1] = [SIGNER] staker
 	// [2] = [] validatorList
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewSetPreferredValidatorInstruction(
@@ -56,7 +55,6 @@ func NewSetPreferredValidatorInstruction(
 func NewSetPreferredValidatorInstructionBuilder() *SetPreferredValidator {
 	return &SetPreferredValidator{
 		Accounts: make(ag_solanago.AccountMetaSlice, 3),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -77,7 +75,6 @@ func (inst *SetPreferredValidator) SetStakePool(stakePool ag_solanago.PublicKey)
 
 func (inst *SetPreferredValidator) SetStaker(staker ag_solanago.PublicKey) *SetPreferredValidator {
 	inst.Accounts[1] = ag_solanago.Meta(staker).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(staker).SIGNER()
 	return inst
 }
 
@@ -137,60 +134,60 @@ func (inst *SetPreferredValidator) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *SetPreferredValidator) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if err := encoder.Encode(inst.ValidatorType); err != nil {
+	if err := encoder.WriteUint8(uint8(inst.ValidatorType)); err != nil {
 		return err
 	}
-	if inst.ValidatorVoteAddress != nil {
-		if err := encoder.Encode(inst.ValidatorVoteAddress); err != nil {
-			return err
-		}
-	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if err := writeOptionPublicKey(encoder, inst.ValidatorVoteAddress); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *SetPreferredValidator) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if err := decoder.Decode(&inst.ValidatorType); err != nil {
+	validatorType, err := decoder.ReadUint8()
+	if err != nil {
 		return err
 	}
-	if inst.ValidatorVoteAddress != nil {
-		if err := decoder.Decode(inst.ValidatorVoteAddress); err != nil {
-			return err
-		}
+	inst.ValidatorType = PreferredValidatorType(validatorType)
+	validatorVoteAddress, err := readOptionPublicKey(decoder)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.ValidatorVoteAddress = validatorVoteAddress
 	return nil
 }
 
 func (inst *SetPreferredValidator) Validate() error {
-	if inst.ValidatorVoteAddress == nil {
-		return errors.New("validatorVoteAddress is not set")
-	}
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 3; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[3:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[1].IsSigner {
 		return errors.New("accounts.Staker should be a signer")
 	}
+	return nil
+}
+
+func (inst *SetPreferredValidator) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *SetPreferredValidator) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 3 {
+		return fmt.Errorf("insufficient accounts, SetPreferredValidator requires at-least 3 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

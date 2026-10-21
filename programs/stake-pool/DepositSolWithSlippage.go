@@ -40,7 +40,6 @@ type DepositSolWithSlippage struct {
 	// [8] = [] systemProgram
 	// [9] = [] tokenProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func DepositSolWithSlippageInstruction(
@@ -77,7 +76,6 @@ func DepositSolWithSlippageInstruction(
 func NewDepositSolWithSlippageBuilder() *DepositSolWithSlippage {
 	return &DepositSolWithSlippage{
 		Accounts: make(ag_solanago.AccountMetaSlice, 10),
-		Signers:  make(ag_solanago.AccountMetaSlice, 1),
 	}
 }
 
@@ -107,8 +105,7 @@ func (inst *DepositSolWithSlippage) SetReserveStake(stake ag_solanago.PublicKey)
 }
 
 func (inst *DepositSolWithSlippage) SetDepositFrom(from ag_solanago.PublicKey) *DepositSolWithSlippage {
-	inst.Accounts[3] = ag_solanago.Meta(from).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(from).SIGNER()
+	inst.Accounts[3] = ag_solanago.Meta(from).WRITE().SIGNER()
 	return inst
 }
 
@@ -223,50 +220,38 @@ func (inst *DepositSolWithSlippage) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *DepositSolWithSlippage) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	if inst.LamportsIn != nil {
-		if err := encoder.Encode(inst.LamportsIn); err != nil {
-			return err
-		}
+	if inst.LamportsIn == nil {
+		return errors.New("lamportsIn is not set")
 	}
-	if inst.MinTokensOut != nil {
-		if err := encoder.Encode(inst.MinTokensOut); err != nil {
-			return err
-		}
+	if err := encoder.WriteUint64(*inst.LamportsIn, ag_binary.LE); err != nil {
+		return err
 	}
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
+	if inst.MinTokensOut == nil {
+		return errors.New("minTokensOut is not set")
+	}
+	if err := encoder.WriteUint64(*inst.MinTokensOut, ag_binary.LE); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (inst *DepositSolWithSlippage) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	if inst.LamportsIn != nil {
-		if err := decoder.Decode(inst.LamportsIn); err != nil {
-			return err
-		}
+	lamportsIn, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	if inst.MinTokensOut != nil {
-		if err := decoder.Decode(inst.MinTokensOut); err != nil {
-			return err
-		}
+	inst.LamportsIn = &lamportsIn
+	minTokensOut, err := decoder.ReadUint64(ag_binary.LE)
+	if err != nil {
+		return err
 	}
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
-		}
-	}
+	inst.MinTokensOut = &minTokensOut
 	return nil
 }
 
@@ -277,13 +262,30 @@ func (inst *DepositSolWithSlippage) Validate() error {
 	if inst.MinTokensOut == nil {
 		return errors.New("minTokensOut is not set")
 	}
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 10; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
+	for _, account := range inst.Accounts[10:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	if !inst.Accounts[3].IsSigner {
 		return errors.New("accounts.DepositFrom should be a signer")
 	}
+	return nil
+}
+
+func (inst *DepositSolWithSlippage) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *DepositSolWithSlippage) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 10 {
+		return fmt.Errorf("insufficient accounts, DepositSolWithSlippage requires at-least 10 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

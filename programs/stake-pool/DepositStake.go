@@ -43,7 +43,6 @@ type DepositStake struct {
 	// [13] = [] tokenProgram
 	// [14] = [] stakeProgram
 	Accounts ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
-	Signers  ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 func NewDepositStakeInstruction(
@@ -85,7 +84,6 @@ func NewDepositStakeInstruction(
 func NewDepositStakeBuilder() *DepositStake {
 	return &DepositStake{
 		Accounts: make(ag_solanago.AccountMetaSlice, 15),
-		Signers:  make(ag_solanago.AccountMetaSlice, 0),
 	}
 }
 
@@ -99,9 +97,16 @@ func (inst *DepositStake) SetValidatorList(validatorList ag_solanago.PublicKey) 
 	return inst
 }
 
+// SetStakeDepositAuthority sets the deposit authority of a permissionless pool: a PDA that the
+// program signs for, so it is not a transaction signer.
 func (inst *DepositStake) SetStakeDepositAuthority(stakeDepositAuthority ag_solanago.PublicKey) *DepositStake {
+	inst.Accounts[2] = ag_solanago.Meta(stakeDepositAuthority)
+	return inst
+}
+
+// SetStakeDepositAuthoritySigner sets the deposit authority of a private pool, which must sign.
+func (inst *DepositStake) SetStakeDepositAuthoritySigner(stakeDepositAuthority ag_solanago.PublicKey) *DepositStake {
 	inst.Accounts[2] = ag_solanago.Meta(stakeDepositAuthority).SIGNER()
-	inst.Signers[0] = ag_solanago.Meta(stakeDepositAuthority).SIGNER()
 	return inst
 }
 
@@ -250,41 +255,41 @@ func (inst *DepositStake) EncodeToTree(parent ag_treeout.Branches) {
 						for i, account := range inst.Accounts {
 							accountsBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", i), account))
 						}
-						signersBranch := accountsBranch.Child(fmt.Sprintf("signers[len=%v]", len(inst.Signers)))
-						for j, signer := range inst.Signers {
-							signersBranch.Child(ag_format.Meta(fmt.Sprintf("[%v]", j), signer))
-						}
 					})
 				})
 		})
 }
 
 func (inst *DepositStake) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
-	for _, account := range inst.Accounts {
-		if err := encoder.Encode(account); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 func (inst *DepositStake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
-	for i := range inst.Accounts {
-		if err := decoder.Decode(inst.Accounts[i]); err != nil {
-			return err
+	return nil
+}
+
+func (inst *DepositStake) Validate() error {
+	for i := 0; i < 15; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
+			return fmt.Errorf("accounts[%v] is not set", i)
+		}
+	}
+	for _, account := range inst.Accounts[15:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
 		}
 	}
 	return nil
 }
 
-func (inst *DepositStake) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
-			return fmt.Errorf("accounts[%v] is not set", i)
-		}
+func (inst *DepositStake) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *DepositStake) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 15 {
+		return fmt.Errorf("insufficient accounts, DepositStake requires at-least 15 accounts not %d", len(accounts))
 	}
-	if len(inst.Signers) == 0 || !inst.Signers[0].IsSigner {
-		return errors.New("accounts.StakeDepositAuthority should be a signer")
-	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }

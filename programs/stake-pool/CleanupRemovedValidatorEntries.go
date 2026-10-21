@@ -16,6 +16,7 @@
 package stakepool
 
 import (
+	"errors"
 	"fmt"
 
 	ag_binary "github.com/gagliardetto/binary"
@@ -45,15 +46,6 @@ func NewCleanupRemovedValidatorEntriesInstructionBuilder() *CleanupRemovedValida
 	return &CleanupRemovedValidatorEntries{
 		Accounts: make(ag_solanago.AccountMetaSlice, 2),
 	}
-}
-
-func (inst *CleanupRemovedValidatorEntries) GetAccounts() []*ag_solanago.AccountMeta {
-	return inst.Accounts
-}
-
-func (inst *CleanupRemovedValidatorEntries) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
-	inst.Accounts = accounts
-	return nil
 }
 
 func (inst *CleanupRemovedValidatorEntries) SetStakePool(pool ag_solanago.PublicKey) *CleanupRemovedValidatorEntries {
@@ -104,19 +96,36 @@ func (inst *CleanupRemovedValidatorEntries) EncodeToTree(parent ag_treeout.Branc
 		})
 }
 
-func (inst *CleanupRemovedValidatorEntries) MarshalWithEncoder(_ *ag_binary.Encoder) error {
+func (inst *CleanupRemovedValidatorEntries) MarshalWithEncoder(encoder *ag_binary.Encoder) error {
 	return nil
 }
 
-func (inst *CleanupRemovedValidatorEntries) UnmarshalWithDecoder(_ *ag_binary.Decoder) error {
+func (inst *CleanupRemovedValidatorEntries) UnmarshalWithDecoder(decoder *ag_binary.Decoder) error {
 	return nil
 }
 
 func (inst *CleanupRemovedValidatorEntries) Validate() error {
-	for i, account := range inst.Accounts {
-		if account == nil {
+	for i := 0; i < 2; i++ {
+		if i >= len(inst.Accounts) || inst.Accounts[i] == nil {
 			return fmt.Errorf("accounts[%v] is not set", i)
 		}
 	}
+	for _, account := range inst.Accounts[2:] {
+		if account == nil {
+			return errors.New("an optional account is not set")
+		}
+	}
+	return nil
+}
+
+func (inst *CleanupRemovedValidatorEntries) GetAccounts() []*ag_solanago.AccountMeta {
+	return inst.Accounts
+}
+
+func (inst *CleanupRemovedValidatorEntries) SetAccounts(accounts []*ag_solanago.AccountMeta) error {
+	if len(accounts) < 2 {
+		return fmt.Errorf("insufficient accounts, CleanupRemovedValidatorEntries requires at-least 2 accounts not %d", len(accounts))
+	}
+	inst.Accounts = append(ag_solanago.AccountMetaSlice(nil), accounts...)
 	return nil
 }
